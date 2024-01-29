@@ -2,7 +2,6 @@
 
 
 ## Rotating file system
-Goal of exercise:
 - [ ] Automatically delete files whenever free space becomes critical
 - [ ] Evict based on *least-recently used*
 - [ ] Should be used if
