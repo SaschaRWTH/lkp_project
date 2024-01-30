@@ -19,7 +19,7 @@ struct eviction_policy {
 	char description[MAX_EVICTION_DESCRIPTION];
 
 	/* Comparison function used to search for file to evict.*/
-	struct inode (*compare)(struct inode *, struct inode *);
+	struct inode *(*compare)(struct inode *, struct inode *);
 };
 /*
 Searches for a file to evict based on the current eviction policy.

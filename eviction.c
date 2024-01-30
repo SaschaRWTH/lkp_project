@@ -4,6 +4,9 @@
 #include "policy.h"
 #include "eviction.h"
 
+static int evict_file(struct inode *dir, struct dentry *dentry
+		      /*additional parameters for eviction*/);
+
 /*
 Percentage threshold at which the eviction of a file is triggered.
 */
@@ -25,8 +28,10 @@ int general_eviction(void /*function parameters here*/)
 
 int dir_eviction(void /*function parameters here*/)
 {
+	struct inode *dir = NULL;
+	struct dentry *dentry = NULL;
 	// TODO: IMPLEMENT DIR_EVICTION
-	return -1;
+	return evict_file(dir, dentry);
 }
 
 /* 
@@ -39,5 +44,6 @@ static int evict_file(struct inode *dir, struct dentry *dentry
 {
 	// TODO: IMPLEMENT DIR_EVICTION
 	// Call inode.ouichefs_unlink(...) ?
+	return -1;
 }
 
