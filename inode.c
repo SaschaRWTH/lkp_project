@@ -14,6 +14,7 @@
 
 #include "ouichefs.h"
 #include "bitmap.h"
+#include "eviction.h"
 
 static const struct inode_operations ouichefs_inode_ops;
 
@@ -242,8 +243,11 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 
 	/* Check if parent directory is full */
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
-		ret = -EMLINK;
-		goto end;
+		// Return an error if dir eviction could not be performed.
+		if(dir_eviction() < 0){
+			ret = -EMLINK;
+			goto end;
+		}
 	}
 
 	/* Get a new free inode */
