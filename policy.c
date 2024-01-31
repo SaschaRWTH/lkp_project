@@ -35,10 +35,24 @@ static struct inode *lru_compare(struct inode *node1, struct inode *node2)
 	return lru;
 }
 
-struct inode *get_file_to_evict(struct inode *parent, struct dentry *dentry)
+struct inode *get_file_to_evict(struct inode *parent)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
+
 	// TODO IMPLEMENT
+	// Search all files, starting from root
+	
+	// Switch function parameters to just receive superblock?
+	struct super_block *sb = parent->i_sb;
+	// Get root directory
+	struct inode *root = ouichefs_iget(sb, 0);
+	if (IS_ERR(root)) {
+		pr_warn("Could not retreive root directory.\n");
+		return root;
+	}
+
+	// Implement recursive search.
+
 	return NULL;
 }
 struct inode *dir_get_file_to_evict(struct inode *dir)
