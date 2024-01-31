@@ -103,7 +103,7 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 
 		if(!remove)
 			remove = inode;
-		else
+		else	//TODO: add check for ERRPTR 
 			remove = current_policy->compare(remove, inode);
 	}
 
