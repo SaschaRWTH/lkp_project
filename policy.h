@@ -34,7 +34,6 @@ eviction policy.
 
 Returns NULL if no file could be found.
 */
-struct inode *dir_get_file_to_evict(struct inode *parent,\
-				    struct dentry *dentry);
+struct inode *dir_get_file_to_evict(struct inode *parent);
 
 #endif /*_OUICHEFS_POLICY_H*/
