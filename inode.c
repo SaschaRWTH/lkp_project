@@ -244,7 +244,7 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* Check if parent directory is full */
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
 		// Return an error if dir eviction could not be performed.
-		if(dir_eviction(dir) < 0){
+		if(dir_eviction(dentry->d_parent) < 0){
 			ret = -EMLINK;
 			goto end;
 		}

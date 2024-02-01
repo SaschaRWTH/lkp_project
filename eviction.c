@@ -11,7 +11,7 @@
  * 
  * Return: -1 if the eviction fails (e.g. file in use)
  */
-static int evict_file(struct inode *parent, struct inode *file);
+static int evict_file(struct inode *, struct dentry *);
 
 /**
  * Percentage threshold at which the eviction of a file is triggered.
@@ -33,9 +33,13 @@ int general_eviction(void /*function parameters here*/)
 }
 
 
-int dir_eviction(struct inode *dir)
+int dir_eviction(struct dentry *dir)
 {
-	struct inode *remove = dir_get_file_to_evict(dir);
+	
+
+
+	pr_info("Called dir_eviction for dir '%s'.\n", dir->d_name.name);
+	struct dentry *remove = dir_get_file_to_evict(dir);
 	if (IS_ERR(remove)) {
 		long errc = PTR_ERR(remove);
 		return errc; 
@@ -45,9 +49,7 @@ int dir_eviction(struct inode *dir)
 	if (!remove)
 		return ONLY_DIR;
 
-
-
-	return evict_file(dir, remove);
+	return evict_file(dir->d_inode, remove);
 }
 
 /**
@@ -55,7 +57,7 @@ int dir_eviction(struct inode *dir)
  * @parent: Parent directory of file.
  * @file: File to evict. 
  */
-static int evict_file(struct inode *parent, struct inode *file)
+static int evict_file(struct inode *parent, struct dentry *dentry)
 {
 	// TODO: Add additional checks 
 
@@ -64,8 +66,13 @@ static int evict_file(struct inode *parent, struct inode *file)
 	// Get dentry from remove->i_dentry?
 	// Function below uses i_dentry list, still not sure if correct,
 	// but more confident. 
-	struct dentry *dentry = d_find_alias(file);
+	// struct dentry *dentry = d_find_alias(file);
 	
+	if (!dentry) {
+		pr_warn("The given dentry to evict was NULL.\n");	
+		return -1;
+	}
+
 	return parent->i_op->unlink(parent, dentry);
 }
 

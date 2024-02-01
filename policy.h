@@ -19,7 +19,7 @@ struct eviction_policy {
 	char description[MAX_EVICTION_DESCRIPTION];
 
 	/* Comparison function used to search for file to evict.*/
-	struct inode *(*compare)(struct inode *, struct inode *);
+	struct dentry *(*compare)(struct dentry*, struct dentry *);
 };
 /*
 Searches for a file to evict based on the current eviction policy.
@@ -34,6 +34,6 @@ eviction policy.
 
 Returns NULL if no file could be found.
 */
-struct inode *dir_get_file_to_evict(struct inode *parent);
+struct dentry *dir_get_file_to_evict(struct dentry *parent);
 
 #endif /*_OUICHEFS_POLICY_H*/

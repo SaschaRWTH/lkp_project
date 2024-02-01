@@ -10,6 +10,6 @@
  * 
  * Return: 0 if the directory eviction could be performed.
  */
-int dir_eviction(struct inode *dir);
+int dir_eviction(struct dentry *dir);
 
 #endif /*_OUICHEFS_EVICTION_H*/
