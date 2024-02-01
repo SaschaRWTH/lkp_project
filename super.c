@@ -187,6 +187,7 @@ static void ouichefs_put_super(struct super_block *sb)
 
 static int ouichefs_sync_fs(struct super_block *sb, int wait)
 {
+	pr_info("ouichefs_sync_fs was called.\n");
 	int ret = 0;
 
 	ret = sync_sb_info(sb, wait);

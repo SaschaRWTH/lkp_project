@@ -101,6 +101,7 @@ failed:
 static struct dentry *ouichefs_lookup(struct inode *dir, struct dentry *dentry,
 				      unsigned int flags)
 {
+	pr_info("ouichefs_lookup was called.\n");
 	struct super_block *sb = dir->i_sb;
 	struct ouichefs_inode_info *ci_dir = OUICHEFS_INODE(dir);
 	struct inode *inode = NULL;
