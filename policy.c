@@ -21,8 +21,10 @@ static struct inode *lru_compare(struct inode *node1, struct inode *node2)
 {
 	struct inode *lru;
 
-	// TODO: Add more safety checks
-	// e.g. checks for NULL and similar
+	if(!node1)
+		return node2;
+	if(!node2)
+		return node1;
 
 	// Compare access time of nodes
 	// We assure seconds are detailed enough for this check.
@@ -87,7 +89,13 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 	// Iterate over the index block
 	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
 		struct ouichefs_file *f = &dblock->files[i];
+		if (!f->inode) {
+			pr_warn("The directory is not full.\n");
+			break;
+		}
 
+		pr_info("Checking file with ino %lu.\n", (unsigned long) f->inode);
+		pr_info("the name is %s.\n", f->filename);
 		// Get inode struct from superblock
 		struct inode *inode = ouichefs_iget(superblock, f->inode);;
 
@@ -111,6 +119,9 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 	// What kind of ____ abbreviation for "release" is "relse".
 	// Had to google because i was unsure.
 	brelse(bufferhead);
+
+	pr_info("Returning file with ino %lu.\n",\
+			 (unsigned long) remove->i_ino);
 
 	return remove;
 }
