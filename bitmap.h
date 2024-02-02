@@ -38,7 +38,6 @@ static inline uint32_t get_first_free_bit(unsigned long *freemap,
 static inline uint32_t get_free_inode(struct ouichefs_sb_info *sbi)
 {
 	uint32_t ret;
-	pr_info("The freemap is '%lu'.\n", *sbi->ifree_bitmap);
 	ret = get_first_free_bit(sbi->ifree_bitmap, sbi->nr_inodes);
 	if (ret) {
 		sbi->nr_free_inodes--;

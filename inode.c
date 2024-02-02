@@ -101,7 +101,6 @@ failed:
 static struct dentry *ouichefs_lookup(struct inode *dir, struct dentry *dentry,
 				      unsigned int flags)
 {
-	pr_info("ouichefs_lookup was called.\n");
 	struct super_block *sb = dir->i_sb;
 	struct ouichefs_inode_info *ci_dir = OUICHEFS_INODE(dir);
 	struct inode *inode = NULL;
@@ -245,7 +244,7 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* Check if parent directory is full */
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
 		// Return an error if dir eviction could not be performed.
-		if(dir_eviction(dir) < 0){
+		if(dir_eviction(idmap, dir) < 0){
 			ret = -EMLINK;
 			goto end;
 		}
