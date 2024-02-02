@@ -28,12 +28,6 @@ Returns NULL if no file could be found.
 */
 struct inode *get_file_to_evict(struct inode *parent);
 
-/*
-Searches for a file in a directory to evict based on the current 
-eviction policy.
-
-Returns NULL if no file could be found.
-*/
-struct inode *dir_get_file_to_evict(struct inode *parent);
+struct inode *dir_get_file_to_evict(struct inode *dir);
 
 #endif /*_OUICHEFS_POLICY_H*/

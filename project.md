@@ -3,10 +3,10 @@
 
 ## Rotating file system
 - [ ] Automatically delete files whenever free space becomes critical
-- [ ] Evict based on *least-recently used*
+- [x] Evict based on *least-recently used*
 - Should be used if
     - [ ] Less the $x$% of blocks remain free
-    - [ ] If a directory is full, delete least-recently used files. If it contains only directories, return failure.
+    - [x] If a directory is full, delete least-recently used files. If it contains only directories, return failure.
 - [ ] Mechanism must be trigged automatically
 - [ ] Only delete files not (currently) in use
 

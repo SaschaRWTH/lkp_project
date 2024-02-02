@@ -41,20 +41,46 @@ int general_eviction(void /*function parameters here*/)
 
 int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
+	int errc = 0;
+
+	// Should we be locking dir? 
+	// Module hangs if i try to
+
 	struct inode *remove = dir_get_file_to_evict(dir);
 	if (IS_ERR(remove)) {
 		long errc = PTR_ERR(remove);
 		return errc; 
 	}
 
+	// Check if the node is locked
+	if (inode_is_locked(remove)) {
+		errc = -EBUSY;
+		goto put_node;
+	}
+
+	// Check if node is in use
+	// Check reference count to inode
+	// WHY IS i_count 2 instead of 1
+	// This should NOT be and is also not always the case????
+	// if (remove->i_count.counter - 1 > 0) {
+	// 	pr_info("The file to remove is in use by another process.\n");
+	// 	errc = 1;
+	// 	goto put_node;
+	// }
+
 	// Check if no files to remove could be found
-	if (!remove)
-		return ONLY_DIR;
+	if (!remove) {
+		errc = ONLY_DIR;
+		goto put_node;
+	}
 
-	if(inode_is_locked(remove))
-		return -EBUSY;
 
-	return evict_file(idmap, dir, remove);
+	// Evict the node
+	errc = evict_file(idmap, dir, remove);
+
+put_node:
+	iput(remove);
+	return errc;
 }
 
 /**
@@ -73,32 +99,33 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 		pr_info("The given file is NULL.\n");
 		return -1;
 	}
-	
-
 
 	struct dentry *dentry = inode_to_dentry(dir, file);
 
 	if (!dentry || IS_ERR(dentry)) {
 		pr_info("The dentry could not be found.\n");
+		return -1;
 	}
 
-	pr_info("Beginning to remve file.\n");
-	// Currently fails, likly in may_delete, at least for dentry not in 
-	// dcache. https://elixir.bootlin.com/linux/v4.15.15/source/fs/namei.c#L2775
-	//errc = vfs_unlink(idmap, dir, dentry, NULL); 
-	// what does "returns victim inode, if the inode is delegated" mean??
-	// cannot find any information on inode delegation
-
+	pr_info("Beginning to remove file.\n");
 	int error = dir->i_op->unlink(dir, dentry);
-	if (error) {
+	if (error) 
 		pr_info("(unlink): Could not unlink file.\n");
-		return error;
-	}
-
+	
+	dput(dentry);
 	
 	return error;
 }
 
+/**
+ * inode_to_dentry - Gets the dentry of a given inode.
+ * 
+ * @dir: directory of the inode.
+ * @inode: inode for which to find the dentry.
+ * 
+ * Return: The dentry of the inode.
+ *  
+ **/
 static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 {
 	char* name = get_name_of_inode(dir, inode);

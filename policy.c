@@ -57,6 +57,18 @@ struct inode *get_file_to_evict(struct inode *parent)
 
 	return NULL;
 }
+
+/**
+ * Searches for a file in a directory to evict based on the current 
+ * eviction policy.
+ * 
+ * @dir: directory to search for file to evict.
+ * 
+ * Return: inode to evict, NULL if no file could be found.
+ * 
+ * Note: function increases the i_count and the inode needs to be 
+ * put afterwards.
+ **/ 
 struct inode *dir_get_file_to_evict(struct inode *dir)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
@@ -82,10 +94,12 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 		pr_warn("The buffer head could not be read.\n");
 		return ERR_PTR(-EIO);
 	}
-	struct ouichefs_dir_block *dblock = (struct ouichefs_dir_block *)bufferhead->b_data;
+	struct ouichefs_dir_block *dblock = \
+		(struct ouichefs_dir_block *)bufferhead->b_data;
 
 
 	struct inode *remove = NULL;
+	struct inode *temp = NULL;
 	// Iterate over the index block
 	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
 		struct ouichefs_file *f = &dblock->files[i];
@@ -94,10 +108,12 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 			break;
 		}
 
-		pr_info("Checking file with ino %lu.\n", (unsigned long) f->inode);
-		pr_info("the name is %s.\n", f->filename);
+		pr_info("Checking file with ino %lu.\n and name %s",\
+			(unsigned long) f->inode, f->filename);
+
 		// Get inode struct from superblock
-		struct inode *inode = ouichefs_iget(superblock, f->inode);;
+		// Increases ref count of inode, need to put!
+		struct inode *inode = ouichefs_iget(superblock, f->inode);
 
 		// Check till first null inode 
 		if (!inode) {
@@ -106,13 +122,23 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 		}
 
 		// Check that the node is a file
-		if(!S_ISREG(inode->i_mode))
+		if (!S_ISREG(inode->i_mode))
 			continue;
 
-		if(!remove)
+		if (!remove) {
 			remove = inode;
-		else	//TODO: add check for ERRPTR 
-			remove = current_policy->compare(remove, inode);
+		}
+		else {
+			temp = current_policy->compare(remove, inode);
+			// Put unused inode
+			if (temp != remove) {
+				iput(remove);
+				remove = inode;
+			}
+			else {
+				iput(inode);
+			}
+		} 
 	}
 
 	// Release buffer
