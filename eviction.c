@@ -15,7 +15,8 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 static struct dentry *inode_to_dentry(struct inode *parent,\
 				      struct inode *inode);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
-
+static struct inode *get_parent_of_inode(struct inode *dir,\
+					 struct inode *inode);
 
 /**
  * Percentage threshold at which the eviction of a file is triggered.
@@ -24,20 +25,19 @@ const u16 eviction_threshhold = 95;
 
 /**
  * general_eviction - Checks the remaining space and evicts a file based on
- * the current policy, if a certin threshold is met. 
+ * 		      the current policy, if a certin threshold is met. 
  * 
  * @dir: Directory where a new node was created.
  * @idmap: Idmap of the mount the inode was found from.
  * 
  * Return: EVICTION_NOT_NECESSARY if the general eviction was not necessary, 
- * 0 if it could be performed
- * and < 0 if the eviction was failed.
+ * 	   0 if it could be performed
+ * 	   and < 0 if the eviction was failed.
  */
 int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
 	int errc = 0;
-	// TODO: Find correct place to call general eviction
-	// Create function to check on each creation?
+	
 	errc = is_threshold_met(dir);
 	if (!errc) {
 		pr_info("The threshold is not met.\n");
@@ -47,7 +47,45 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	if (errc < 0) 
 		return errc;
 
-	// TODO: IMPLEMENT DIR_EVICTION
+	struct inode *evict = get_file_to_evict(dir);
+
+	if (!evict) {
+		pr_warn("Could not find a file to evict.\n");
+		return -1;
+	}
+
+	if (IS_ERR(evict)) {
+		pr_warn("get_file_to_evict return an error.\n");
+		return PTR_ERR(evict);
+	}
+	
+	// Get root directory
+	struct super_block *sb = dir->i_sb;
+	struct inode *root = ouichefs_iget(sb, 0);
+	if (IS_ERR(root)) {
+		pr_warn("Could not retreive root directory.\n");
+		return PTR_ERR(root);
+	}
+
+	struct inode *parent = get_parent_of_inode(root, evict);
+	iput(root);
+
+	if (!parent) {
+		pr_warn("Could not find parent of file to evict.\n");
+		errc = -1;
+		goto general_put;
+	}
+	if (IS_ERR(parent)) {
+		pr_warn("Find parent return an error.\n");
+		errc = PTR_ERR(parent);
+		goto general_put;
+	}
+
+	errc = evict_file(idmap, parent, evict);
+
+	iput(parent);
+general_put:
+	iput(evict);
 	return errc;
 }
 /**
@@ -58,7 +96,8 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
  * 
  * Return: 0 if threshold is not met, > 0 if it is met, < 0 on error.
  */
-static int is_threshold_met(struct inode *dir) {
+static int is_threshold_met(struct inode *dir) 
+{
 	
 	if (dir == NULL) 
 		return -1;
@@ -94,6 +133,13 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	// Module hangs if i try to
 
 	struct inode *remove = dir_get_file_to_evict(dir);
+	// Check if no files to remove could be found
+	if (!remove) {
+		errc = ONLY_CONTAINS_DIR;
+		return errc;
+	}
+
+	// Check if dir_get_file_to_evict returned an error
 	if (IS_ERR(remove)) {
 		long errc = PTR_ERR(remove);
 		return errc; 
@@ -102,7 +148,7 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	// Check if the node is locked
 	if (inode_is_locked(remove)) {
 		errc = -EBUSY;
-		goto put_node;
+		goto dir_put;
 	}
 
 	// Check if node is in use
@@ -112,20 +158,13 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	// if (remove->i_count.counter - 1 > 0) {
 	// 	pr_info("The file to remove is in use by another process.\n");
 	// 	errc = 1;
-	// 	goto put_node;
+	// 	goto dir_put;
 	// }
-
-	// Check if no files to remove could be found
-	if (!remove) {
-		errc = ONLY_CONTAINS_DIR;
-		goto put_node;
-	}
-
 
 	// Evict the node
 	errc = evict_file(idmap, dir, remove);
 
-put_node:
+dir_put:
 	iput(remove);
 	return errc;
 }
@@ -227,3 +266,69 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode)
 
 	return name;
 }
+
+/**
+ *  get_parent_of_inode - Implements a depth first search for the parent 
+ *  			  inode of a given inode.
+ *  @dir: Directory inode from which to search for. For complete DFS use  
+ * 	  root directory here.
+ *  @inode: Inode of which you want to find the parent.
+ * 
+ *  Return: Inode of the parent directory, NULL if no parent directory
+ *  	    could be found.  
+ */
+static struct inode *get_parent_of_inode(struct inode *dir, struct inode *inode)
+{
+	if(!S_ISDIR(dir->i_mode))
+		return NULL;
+
+	// Search directory for inode based on policy
+	struct ouichefs_inode_info *ci = OUICHEFS_INODE(inode);
+	struct super_block *superblock = inode->i_sb;
+	struct buffer_head *bufferhead = sb_bread(superblock, ci->index_block);
+	if (!bufferhead) {
+		pr_warn("The buffer head could not be read.\n");
+		return ERR_PTR(-EIO);
+	}
+	struct ouichefs_dir_block *dblock = \
+		(struct ouichefs_dir_block *)bufferhead->b_data;
+
+
+	struct inode *temp = NULL;
+	struct inode *res = NULL;
+	// Iterate over the index block
+	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
+		struct ouichefs_file *f = &dblock->files[i];
+		if (!f->inode) 
+			break;
+
+		// Return directory if child ino matches inode ino
+		if (f->inode == inode->i_ino) {
+			res = dir; 
+			goto parent_release;
+		}
+
+		temp = ouichefs_iget(superblock, f->inode);
+
+		if (!temp) 
+			continue;
+
+		if (IS_ERR(temp))
+			continue;
+
+		// Search subdirectory for inode
+		if (S_ISDIR(temp->i_mode)) {
+			res = get_parent_of_inode(temp, inode);
+			if(res && !IS_ERR(res)) {
+				iput(temp);
+				goto parent_release;
+			}
+		}
+		iput(temp);
+	}
+
+parent_release:
+	brelse(bufferhead);
+	return res;
+}
+

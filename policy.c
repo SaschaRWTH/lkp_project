@@ -13,7 +13,7 @@ static struct eviction_policy least_recently_used_policy = {
 };
 
 static struct eviction_policy *current_policy = &least_recently_used_policy;
-
+struct inode *file_to_evict_rec(struct inode *inode);
 /*
 Compares two inode and returns the one which was last-recently used.
 */ 
@@ -53,9 +53,18 @@ struct inode *get_file_to_evict(struct inode *dir)
 		return root;
 	}
 
-	// Implement recursive search.
+	struct inode *evict = file_to_evict_rec(dir);
 
-	return NULL;
+	if (!evict)
+		return NULL;
+	
+	if (!S_ISREG(evict->i_mode)) {
+		pr_warn("file_to_evict_rec did not return a file.\n");
+		iput(evict);
+		return NULL;
+	}
+
+	return evict;
 }
 
 struct inode *file_to_evict_rec(struct inode *inode)
