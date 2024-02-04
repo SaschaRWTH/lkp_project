@@ -9,16 +9,14 @@
 #include "eviction.h"
 #include "ouichefs.h"
 
-/**
- * Functions for eviction a file.
- * 
- * Return: -1 if the eviction fails (e.g. file in use)
- */
+static int is_threshold_met(struct inode *dir);
 static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 		      struct inode *file);
 static struct dentry *inode_to_dentry(struct inode *parent,\
 				      struct inode *inode);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
+
+
 /**
  * Percentage threshold at which the eviction of a file is triggered.
  */
@@ -28,7 +26,7 @@ const u16 eviction_threshhold = 95;
  * general_eviction - Checks the remaining space and evicts a file based on
  * the current policy, if a certin threshold is met. 
  * 
- * @dir: Directory from which to evict.
+ * @dir: Directory where a new node was created.
  * @idmap: Idmap of the mount the inode was found from.
  * 
  * Return: EVICTION_NOT_NECESSARY if the general eviction was not necessary, 
@@ -37,13 +35,47 @@ const u16 eviction_threshhold = 95;
  */
 int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
+	int errc = 0;
 	// TODO: Find correct place to call general eviction
 	// Create function to check on each creation?
+	errc = is_threshold_met(dir);
+	if (!errc) {
+		pr_info("The threshold is not met.\n");
+		return EVICTION_NOT_NECESSARY;
+	}
+
+	if (errc < 0) 
+		return errc;
+
 	// TODO: IMPLEMENT DIR_EVICTION
-	return -1;
+	return errc;
 }
+/**
+ * is_threshold_met - Checks whether the threshold for a general eviction
+ * is met.
+ * 
+ * @dir: Directory where a new node was created.
+ * 
+ * Return: 0 if threshold is not met, > 0 if it is met, < 0 on error.
+ */
+static int is_threshold_met(struct inode *dir) {
+	
+	if (dir == NULL) 
+		return -1;
 
+	struct super_block *sb = dir->i_sb;
+	if (sb == NULL)
+		return -1;
 
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
+	if (sbi == NULL) 
+		return -1;
+
+	if (sbi->nr_free_blocks > (sbi->nr_blocks * eviction_threshhold) / 100)
+		return 1;
+
+	return 0;
+}
 
 /**
  * dir_eviction - Eviction that is triggered when a node is created in a full 

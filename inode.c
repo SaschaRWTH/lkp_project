@@ -295,6 +295,14 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* setup dentry */
 	d_instantiate(dentry, inode);
 
+	/* TODO: Why is inode not put here? Shouldnt it be put?
+		 It is not returned and the previous functions
+		 Should not put inode on there own?
+		 ext4 implementation of create function also put inode
+		 at end if function?
+		 https://elixir.bootlin.com/linux/
+		 v6.5.7/source/fs/ext4/namei.c#L2820 */
+
 	return 0;
 
 iput:
