@@ -245,7 +245,7 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 		// Return an error if dir eviction could not be performed.
 		int dir_evc = dir_eviction(idmap, dir);
 		if (dir_evc == ONLY_CONTAINS_DIR) {
-			ret == -EMLINK;
+			ret = -EMLINK;
 			goto end;
 		}
 		if (dir_evc < 0) { 

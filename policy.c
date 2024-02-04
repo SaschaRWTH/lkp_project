@@ -37,7 +37,7 @@ static struct inode *lru_compare(struct inode *node1, struct inode *node2)
 	return lru;
 }
 
-struct inode *get_file_to_evict(struct inode *parent)
+struct inode *get_file_to_evict(struct inode *dir)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
 
@@ -45,7 +45,7 @@ struct inode *get_file_to_evict(struct inode *parent)
 	// Search all files, starting from root
 	
 	// Switch function parameters to just receive superblock?
-	struct super_block *sb = parent->i_sb;
+	struct super_block *sb = dir->i_sb;
 	// Get root directory
 	struct inode *root = ouichefs_iget(sb, 0);
 	if (IS_ERR(root)) {
@@ -56,6 +56,72 @@ struct inode *get_file_to_evict(struct inode *parent)
 	// Implement recursive search.
 
 	return NULL;
+}
+
+struct inode *file_to_evict_rec(struct inode *inode)
+{
+	if (!inode) 
+		return inode;
+
+	// If inode is a file, return the inode
+	if (S_ISREG(inode->i_mode)) 
+		return inode;
+
+	if (!S_ISDIR(inode->i_mode)) {
+		pr_warn("inode %lu is neither a file nor a directory.\n", 
+			inode->i_ino);
+		return inode;
+	}
+
+	// Search directory for inode based on policy
+	struct ouichefs_inode_info *ci = OUICHEFS_INODE(inode);
+	struct super_block *superblock = inode->i_sb;
+	struct buffer_head *bufferhead = sb_bread(superblock, ci->index_block);
+	if (!bufferhead) {
+		pr_warn("The buffer head could not be read.\n");
+		return ERR_PTR(-EIO);
+	}
+	struct ouichefs_dir_block *dblock = \
+		(struct ouichefs_dir_block *)bufferhead->b_data;
+
+
+	struct inode *remove = NULL;
+	struct inode *temp = NULL;
+	struct inode *res = NULL;
+	// Iterate over the index block
+	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
+		struct ouichefs_file *f = &dblock->files[i];
+		if (!f->inode) 
+			break;
+
+		// Get inode struct from superblock
+		// Increases ref count of inode, need to put!
+		temp = ouichefs_iget(superblock, f->inode);
+
+		// Check till first null inode 
+		if (!temp) 
+			break;
+		
+		temp = file_to_evict_rec(temp);
+		
+
+		if (!remove) {
+			remove = temp;
+			continue;
+		}
+
+		res = current_policy->compare(remove, temp);
+		if (res == remove) {
+			iput(temp);
+		}
+		else {
+			iput(remove);
+			remove = res;
+		}
+	}
+	brelse(bufferhead);
+
+	return remove;
 }
 
 /**
