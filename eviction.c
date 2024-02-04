@@ -24,13 +24,18 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode);
  */
 const u16 eviction_threshhold = 95;
 
-/** 
- * Evition that is triggered when a certin threshold is met.
- * Evicts a file from the partition based on the current policy.
- *
- * Returns -1 if the eviction fails (e.g. file in use)
+/**
+ * general_eviction - Checks the remaining space and evicts a file based on
+ * the current policy, if a certin threshold is met. 
+ * 
+ * @dir: Directory from which to evict.
+ * @idmap: Idmap of the mount the inode was found from.
+ * 
+ * Return: EVICTION_NOT_NECESSARY if the general eviction was not necessary, 
+ * 0 if it could be performed
+ * and < 0 if the eviction was failed.
  */
-int general_eviction(void /*function parameters here*/)
+int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
 	// TODO: Find correct place to call general eviction
 	// Create function to check on each creation?
@@ -39,6 +44,16 @@ int general_eviction(void /*function parameters here*/)
 }
 
 
+
+/**
+ * dir_eviction - Eviction that is triggered when a node is created in a full 
+ * directory.
+ * 
+ * @dir: Directory from which to evict.
+ * @idmap: Idmap of the mount the inode was found from.
+ * 
+ * Return: 0 if the directory eviction could be performed.
+ */
 int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
 	int errc = 0;
@@ -70,7 +85,7 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 
 	// Check if no files to remove could be found
 	if (!remove) {
-		errc = ONLY_DIR;
+		errc = ONLY_CONTAINS_DIR;
 		goto put_node;
 	}
 

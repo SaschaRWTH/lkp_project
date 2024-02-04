@@ -1,15 +1,10 @@
 #ifndef _OUICHEFS_EVICTION_H
 #define _OUICHEFS_EVICTION_H
 
-#define ONLY_DIR 1
+#define ONLY_CONTAINS_DIR 1
+#define EVICTION_NOT_NECESSARY 2
 
-/**
- * dir_eviction - Eviction that is triggered when a node is created in a full 
- * directory.
- * @dir: Directory from which to evict.
- * 
- * Return: 0 if the directory eviction could be performed.
- */
+int general_eviction(struct mnt_idmap *idmap, struct inode *dir);
 int dir_eviction(struct mnt_idmap *idmap, struct inode *dir);
 
 #endif /*_OUICHEFS_EVICTION_H*/

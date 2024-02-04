@@ -244,6 +244,10 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
 		// Return an error if dir eviction could not be performed.
 		int dir_evc = dir_eviction(idmap, dir);
+		if (dir_evc == ONLY_CONTAINS_DIR) {
+			ret == -EMLINK;
+			goto end;
+		}
 		if (dir_evc < 0) { 
 			ret = dir_evc;
 			goto end;
