@@ -212,8 +212,18 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 	if (error) 
 		pr_info("(unlink): Could not unlink file.\n");
 	
-	// Unneccessary ? 
-	dput(dentry);
+	/**
+	 * Unnecessary? I dont know. 
+	 * dput(dentry);
+	 * Is it causing errors? Probably
+	 * Ok, dput(dentry) was causing error and does not need to be called.
+	 * 
+	 * what about 				
+	 * dont_mount(dentry);
+	 * detach_mounts(dentry);
+	 * Do i need them?
+	 * I have no clue.
+	 */ 
 	
 	return error;
 }
