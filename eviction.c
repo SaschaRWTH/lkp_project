@@ -141,7 +141,7 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
 	int errc = 0;
 
-	// Should we be locking dir? 
+	// TODO: Should we be locking dir? 
 	// Module hangs if i try to
 
 	struct inode *remove = dir_get_file_to_evict(dir);
@@ -163,7 +163,7 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 		goto dir_put;
 	}
 
-	// Check if node is in use
+	// TODO: Check if node is in use
 	// Check reference count to inode
 	// WHY IS i_count 2 instead of 1
 	// This should NOT be and is also not always the case????
@@ -212,7 +212,7 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 	if (error) 
 		pr_info("(unlink): Could not unlink file.\n");
 	
-	/**
+	/*
 	 * Unnecessary? I dont know. 
 	 * dput(dentry);
 	 * Is it causing errors? Probably
@@ -248,42 +248,52 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 	if(IS_ERR(name))
 		return ERR_PTR(PTR_ERR(name));
 
-	pr_info("Found the name '%s' of the dentry.\n", name);
-
-	// Did i find the correct function??
+	/**
+	 *  Did i find the correct function??
+	 *  I am still not sure, but it works for now. 
+	 */
 	struct dentry *dentry = d_obtain_alias(inode);
 
 	dentry->d_name.name = name;	
+
+
 	/* SOMEHOW this can set dentry->d_inode->i_ino to 0.
-	   but also not always, only after shutting down vm and 
-	   restarting??	  
-
-	   So apparently, for whatever reason, 
-	   'dentry->d_parent->d_inode' sets the dentry->d_inode
-	   property to the parent as well, if i understand correctly???
-
-	   Jap, thats whats i happening, but only after reboot?
-	   Why? 
-	   What?
-
-	   Probably sth to do with if the dentry is in the dcache or not
-	*/
-
-	pr_info("pointer of parent dir = %p.\n", dir);
+	 * but also not always, only after shutting down vm and 
+	 * restarting??	  
+	 * 
+	 * So apparently, for whatever reason, 
+	 * 'dentry->d_parent->d_inode' sets the dentry->d_inode
+	 * property to the parent as well, if i understand correctly???
+	 * 	
+	 * Jap, thats whats i happening, but only after reboot?
+	 * Why? 
+	 * What?
+	 * 
+	 * Probably sth to do with if the dentry is in the dcache or not
+	 */
 	dentry->d_parent->d_inode = dir;
 	/* 
-	   Can we just set the inode of the dentry to its original 
-	   or "supposed to be"-values?
-
-	   Kind of working, but now we have
-	   kernel BUG at fs/inode.c:1804!
-	   the put kernel bug, described above
-	*/
+	 * Can we just set the inode of the dentry to its original 
+	 * or "supposed to be"-values?
+	 * 
+	 * bug:
+	 * Kind of working, but now we have
+	 * kernel BUG at fs/inode.c:1804!
+	 * the put kernel bug, described above.
+	 * FIX: Removed 'dput(dentry)'
+	 */
 	dentry->d_inode = inode;
 
 	return dentry;
 }
 
+/**
+ *  get_name_of_inode - gets the name of a given inode
+ *  @dir: parent directory of the inode
+ *  @inode: inode of which we want to know the name
+ * 
+ *  Return: name of inode.
+ */
 static char *get_name_of_inode(struct inode *dir, struct inode *inode)
 {
 	char *name = NULL;
