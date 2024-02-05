@@ -19,6 +19,17 @@ static struct inode *get_parent_of_inode(struct inode *dir,\
 					 struct inode *inode);
 
 /**
+ * Currently we have a 
+ * kernel BUG at fs/inode.c:1804!
+ * iput wants to put inode but I_CLEAR is set
+ * (Added by clear_inode().  In this state the inode is
+ * clean and can be destroyed.)
+ * 
+ * Dont know why the kernel bug occures. 
+ * Not putting inode correctly?
+ */
+
+/**
  * Percentage threshold at which the eviction of a file is triggered.
  */
 const u16 eviction_threshhold = 95;
@@ -39,13 +50,14 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	int errc = 0;
 	
 	errc = is_threshold_met(dir);
-	if (!errc) {
+	if (errc > 0) {
 		pr_info("The threshold is not met.\n");
 		return EVICTION_NOT_NECESSARY;
 	}
-
-	if (errc < 0) 
+	if (errc < 0) {
+		pr_info("The threshold check failed.\n");
 		return errc;
+	}
 
 	struct inode *evict = get_file_to_evict(dir);
 
@@ -187,17 +199,20 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 	}
 
 	struct dentry *dentry = inode_to_dentry(dir, file);
+	pr_info("dentry ino = %lu.\n", dentry->d_inode->i_ino);
 
 	if (!dentry || IS_ERR(dentry)) {
 		pr_info("The dentry could not be found.\n");
 		return -1;
 	}
 
-	pr_info("Beginning to remove file.\n");
+	pr_info("dir ino: %lu, dentry.inode.ino: %lu.\n", dir->i_ino,
+		dentry->d_inode->i_ino);
 	int error = dir->i_op->unlink(dir, dentry);
 	if (error) 
 		pr_info("(unlink): Could not unlink file.\n");
 	
+	// Unneccessary ? 
 	dput(dentry);
 	
 	return error;
@@ -228,9 +243,33 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 	// Did i find the correct function??
 	struct dentry *dentry = d_obtain_alias(inode);
 
-	pr_info("Found dentry the corrisponding dentry.\n");
 	dentry->d_name.name = name;	
+	/* SOMEHOW this can set dentry->d_inode->i_ino to 0.
+	   but also not always, only after shutting down vm and 
+	   restarting??	  
+
+	   So apparently, for whatever reason, 
+	   'dentry->d_parent->d_inode' sets the dentry->d_inode
+	   property to the parent as well, if i understand correctly???
+
+	   Jap, thats whats i happening, but only after reboot?
+	   Why? 
+	   What?
+
+	   Probably sth to do with if the dentry is in the dcache or not
+	*/
+
+	pr_info("pointer of parent dir = %p.\n", dir);
 	dentry->d_parent->d_inode = dir;
+	/* 
+	   Can we just set the inode of the dentry to its original 
+	   or "supposed to be"-values?
+
+	   Kind of working, but now we have
+	   kernel BUG at fs/inode.c:1804!
+	   the put kernel bug, described above
+	*/
+	dentry->d_inode = inode;
 
 	return dentry;
 }

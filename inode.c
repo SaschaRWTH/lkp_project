@@ -295,11 +295,8 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* setup dentry */
 	d_instantiate(dentry, inode);
 
-	ret = general_eviction(idmap, dir);
-	if (ret != EVICTION_NOT_NECESSARY) {
-		pr_info("An eviction was not necessary.\n");
-		ret = 0;
-	}
+	// Add error handling.
+	general_eviction(idmap, dir);
 
 	/* TODO: Why is inode not put here? Shouldnt it be put?
 		 It is not returned and the previous functions
