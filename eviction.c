@@ -110,7 +110,6 @@ general_put:
  */
 static int is_threshold_met(struct inode *dir) 
 {
-	
 	if (dir == NULL) 
 		return -1;
 

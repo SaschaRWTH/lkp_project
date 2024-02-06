@@ -14,35 +14,47 @@ static struct eviction_policy least_recently_used_policy = {
 
 static struct eviction_policy *current_policy = &least_recently_used_policy;
 struct inode *file_to_evict_rec(struct inode *inode);
-/*
-Compares two inode and returns the one which was last-recently used.
-*/ 
-static struct inode *lru_compare(struct inode *node1, struct inode *node2)
+
+/**
+ * lru_compare - Compares two inodes based on which was used least recently.
+ * 
+ * @first: First node to compare.
+ * @second: Second node to compare.
+ * 
+ * Return: The node which was least recently used.
+ */ 
+static struct inode *lru_compare(struct inode *first, struct inode *second)
 {
 	struct inode *lru;
 
-	if(!node1)
-		return node2;
-	if(!node2)
-		return node1;
+	if(!first)
+		return second;
+	if(!second)
+		return first;
 
 	// Compare access time of nodes
 	// We assure seconds are detailed enough for this check.
-	if(node1->i_atime.tv_sec < node2->i_atime.tv_sec)
-		lru = node1;
+	if(first->i_atime.tv_sec < second->i_atime.tv_sec)
+		lru = first;
 	else
-		lru = node2;
+		lru = second;
 	
 	// Return inode which was least recently accessed
 	return lru;
 }
 
+/**
+ *  get_file_to_evict - Gets a file from the fs to evict based on the 
+ *                      current policy.
+ * 
+ * @dir: A directory in the fs. The super_bock would also suffice, to give
+ *       an inode is just easier.
+ * 
+ * Return: The inode to evict based on the current eviction policy.
+ */
 struct inode *get_file_to_evict(struct inode *dir)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
-
-	// TODO IMPLEMENT
-	// Search all files, starting from root
 	
 	// Switch function parameters to just receive superblock?
 	struct super_block *sb = dir->i_sb;
@@ -53,7 +65,7 @@ struct inode *get_file_to_evict(struct inode *dir)
 		return root;
 	}
 
-	struct inode *evict = file_to_evict_rec(dir);
+	struct inode *evict = file_to_evict_rec(root);
 
 	if (!evict)
 		return NULL;
@@ -67,6 +79,15 @@ struct inode *get_file_to_evict(struct inode *dir)
 	return evict;
 }
 
+/**
+ * file_to_evict_rec - Implements a recursive DFS search through the 
+ *      	       given directory and its subdirectories for the file
+ *  		       to evict based on the current policy.
+ * 
+ * @dir: Directory from which to search from.
+ * 
+ * Return: File to evict in the directory or its subdirectories.
+ */
 struct inode *file_to_evict_rec(struct inode *inode)
 {
 	if (!inode) 
@@ -226,3 +247,12 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 
 	return remove;
 }
+
+
+
+/**
+ * TODO: Write function to set another policy and export it.
+ * 
+ * Should probably lock the exiction policy struct while iterating over 
+ * it or changing policy so that the policy cant be changed while it is in use.  
+ */
