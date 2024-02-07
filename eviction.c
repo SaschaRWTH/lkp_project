@@ -50,14 +50,15 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	int errc = 0;
 	
 	errc = is_threshold_met(dir);
-	if (errc > 0) {
-		pr_info("The threshold is not met.\n");
+	if (errc == 0) 
 		return EVICTION_NOT_NECESSARY;
-	}
+
 	if (errc < 0) {
 		pr_info("The threshold check failed.\n");
 		return errc;
 	}
+
+	pr_info("The threshold was met. Finding file to evict.\n");
 
 	struct inode *evict = get_file_to_evict(dir);
 
@@ -93,7 +94,12 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 		goto general_put;
 	}
 
+	loff_t evicted_bytes = evict->i_size;
 	errc = evict_file(idmap, parent, evict);
+	if (!errc) 
+		pr_info("Successfully evicted %lld bytes.\n", evicted_bytes);
+	else 
+		pr_info("An error occured in eviction.\n");
 
 	iput(parent);
 general_put:
@@ -121,7 +127,15 @@ static int is_threshold_met(struct inode *dir)
 	if (sbi == NULL) 
 		return -1;
 
-	if (sbi->nr_free_blocks > (sbi->nr_blocks * eviction_threshhold) / 100)
+	/**
+	 * This check is currently not correct.
+	 */
+	pr_info("Number of free blocks: %i\n", sbi->nr_free_blocks);
+	pr_info("Number of blocks: %i\n", sbi->nr_blocks);
+	u32 threshold_number = \
+		(sbi->nr_blocks * (100 - eviction_threshhold)) / 100;
+	pr_info("Number of blocks threshold: %i\n", threshold_number);
+	if (sbi->nr_free_blocks < threshold_number)
 		return 1;
 
 	return 0;
