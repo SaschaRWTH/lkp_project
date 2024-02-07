@@ -32,7 +32,7 @@ static struct inode *get_parent_of_inode(struct inode *dir,\
 /**
  * Percentage threshold at which the eviction of a file is triggered.
  */
-const u16 eviction_threshhold = 95;
+const u16 eviction_threshhold = 80;
 
 /**
  * general_eviction - Checks the remaining space and evicts a file based on
@@ -127,14 +127,9 @@ static int is_threshold_met(struct inode *dir)
 	if (sbi == NULL) 
 		return -1;
 
-	/**
-	 * This check is currently not correct.
-	 */
-	pr_info("Number of free blocks: %i\n", sbi->nr_free_blocks);
-	pr_info("Number of blocks: %i\n", sbi->nr_blocks);
+
 	u32 threshold_number = \
 		(sbi->nr_blocks * (100 - eviction_threshhold)) / 100;
-	pr_info("Number of blocks threshold: %i\n", threshold_number);
 	if (sbi->nr_free_blocks < threshold_number)
 		return 1;
 
