@@ -251,8 +251,8 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 
 
 /**
- * TODO: Write function to set another policy and export it.
+ * #TODO: Write function to set another policy and export it.
  * 
- * TODO: Should probably lock the current policy  while iterating over 
+ * #TODO: Should probably lock the current policy  while iterating over 
  * it or changing policy so that the policy cant be changed while it is in use.  
  */

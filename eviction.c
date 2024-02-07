@@ -34,6 +34,13 @@ static struct inode *get_parent_of_inode(struct inode *dir,\
  */
 const u16 eviction_threshhold = 80;
 
+/** 
+ * #TODO: _create should call a check for general eviction
+ * or similar with the eviction check and general 
+ * eviction should then evit.
+ * -> we can let the user trigger eviction easier. 
+*/
+
 /**
  * general_eviction - Checks the remaining space and evicts a file based on
  * 		      the current policy, if a certin threshold is met. 
@@ -61,6 +68,7 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	pr_info("The threshold was met. Finding file to evict.\n");
 
 	struct inode *evict = get_file_to_evict(dir);
+	pr_info("Found inode with ino %lu.\n", evict->i_ino);
 
 	if (!evict) {
 		pr_warn("Could not find a file to evict.\n");
@@ -71,17 +79,29 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 		pr_warn("get_file_to_evict return an error.\n");
 		return PTR_ERR(evict);
 	}
+
+	if (!S_ISREG(evict->i_mode)) {
+		pr_warn("Eviction search did not return a reg file.\n");
+		errc = -1;
+		goto general_put;
+	}
 	
 	// Get root directory
 	struct super_block *sb = dir->i_sb;
 	struct inode *root = ouichefs_iget(sb, 0);
+	if (!root) {
+		pr_warn("No root directory found.\n");
+		return -1;
+	}
 	if (IS_ERR(root)) {
-		pr_warn("Could not retreive root directory.\n");
+		pr_warn("Failed to retreive root directory.\n");
 		return PTR_ERR(root);
 	}
 
 	struct inode *parent = get_parent_of_inode(root, evict);
-	iput(root);
+
+	if (parent != root)
+		iput(root);
 
 	if (!parent) {
 		pr_warn("Could not find parent of file to evict.\n");
@@ -346,12 +366,14 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode)
  */
 static struct inode *get_parent_of_inode(struct inode *dir, struct inode *inode)
 {
-	if(!S_ISDIR(dir->i_mode))
+	if (!S_ISDIR(dir->i_mode)) {
+		pr_warn("The given parent dir was not a directory.\n");
 		return NULL;
+	}
 
 	// Search directory for inode based on policy
-	struct ouichefs_inode_info *ci = OUICHEFS_INODE(inode);
-	struct super_block *superblock = inode->i_sb;
+	struct ouichefs_inode_info *ci = OUICHEFS_INODE(dir);
+	struct super_block *superblock = dir->i_sb;
 	struct buffer_head *bufferhead = sb_bread(superblock, ci->index_block);
 	if (!bufferhead) {
 		pr_warn("The buffer head could not be read.\n");
@@ -368,9 +390,10 @@ static struct inode *get_parent_of_inode(struct inode *dir, struct inode *inode)
 		struct ouichefs_file *f = &dblock->files[i];
 		if (!f->inode) 
 			break;
-
 		// Return directory if child ino matches inode ino
 		if (f->inode == inode->i_ino) {
+			pr_info("Found matching ino. Returning dir.ino = %lu\n",
+				dir->i_ino);
 			res = dir; 
 			goto parent_release;
 		}
