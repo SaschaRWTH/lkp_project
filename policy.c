@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
+
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
@@ -70,7 +72,7 @@ struct inode *get_file_to_evict(struct inode *dir)
 	}	
 	
 	if (!S_ISREG(evict->i_mode)) {
-		pr_warn("file_to_evict_rec did not return a file.\n");
+		pr_warn("file_to_evict_non_rec did not return a file.\n");
 		iput(evict);
 		return NULL;
 	}

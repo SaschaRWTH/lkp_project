@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
+
 #include <linux/kernel.h>
 #include <linux/dcache.h>
 #include <linux/buffer_head.h>
@@ -15,8 +17,11 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 static struct dentry *inode_to_dentry(struct inode *parent,\
 				      struct inode *inode);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
-static struct inode *get_parent_of_inode(struct inode *dir,\
-					 struct inode *inode);
+static struct inode *get_parent_of_inode_non_rec(struct inode *inode);
+static struct inode *search_parent_isb(struct inode *inode, \
+				       uint32_t inode_block);
+static bool dir_contains_ino(struct super_block *superblock, \
+			     struct ouichefs_inode *dir, uint32_t ino);
 
 /**
  * Currently we have a 
@@ -86,22 +91,7 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 		goto general_put;
 	}
 	
-	// Get root directory
-	struct super_block *sb = dir->i_sb;
-	struct inode *root = ouichefs_iget(sb, 0);
-	if (!root) {
-		pr_warn("No root directory found.\n");
-		return -1;
-	}
-	if (IS_ERR(root)) {
-		pr_warn("Failed to retreive root directory.\n");
-		return PTR_ERR(root);
-	}
-
-	struct inode *parent = get_parent_of_inode(root, evict);
-
-	if (parent != root)
-		iput(root);
+	struct inode *parent = get_parent_of_inode_non_rec(evict);
 
 	if (!parent) {
 		pr_warn("Could not find parent of file to evict.\n");
@@ -354,71 +344,111 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode)
 	return name;
 }
 
-/**
- *  get_parent_of_inode - Implements a depth first search for the parent 
- *  			  inode of a given inode.
- *  @dir: Directory inode from which to search for. For complete DFS use  
- * 	  root directory here.
- *  @inode: Inode of which you want to find the parent.
- * 
- *  Return: Inode of the parent directory, NULL if no parent directory
- *  	    could be found.  
- */
-static struct inode *get_parent_of_inode(struct inode *dir, struct inode *inode)
+static struct inode *get_parent_of_inode_non_rec(struct inode *inode) 
 {
-	if (!S_ISDIR(dir->i_mode)) {
-		pr_warn("The given parent dir was not a directory.\n");
+	if (!inode) {
+		pr_warn("The given inode was NULL.\n");
 		return NULL;
 	}
 
-	// Search directory for inode based on policy
-	struct ouichefs_inode_info *ci = OUICHEFS_INODE(dir);
-	struct super_block *superblock = dir->i_sb;
-	struct buffer_head *bufferhead = sb_bread(superblock, ci->index_block);
-	if (!bufferhead) {
-		pr_warn("The buffer head could not be read.\n");
+	// Search inode store for inode to evict 
+	struct super_block *superblock = inode->i_sb;
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
+
+	pr_debug("Number of istore blocks: %d.\n", sbi->nr_istore_blocks);
+	for(int inode_block = 0; inode_block < sbi->nr_istore_blocks; \
+				 inode_block++) {
+		pr_debug("Checking inode store block %d.\n", inode_block);
+		struct inode *parent = search_parent_isb(inode, inode_block + 1);
+		if (parent) {
+			return parent;
+		}
+	}
+
+	return NULL;
+}
+/**
+ * isb = inode store block
+*/
+static struct inode *search_parent_isb(struct inode *inode, \
+				       uint32_t inode_block) 
+{
+	if (!inode) 
+		return NULL;
+
+	if (inode_block < 1 ) 
+		return NULL;
+
+	struct super_block *superblock = inode->i_sb;
+	struct buffer_head *bh = sb_bread(superblock, inode_block);
+	if (!bh)
 		return ERR_PTR(-EIO);
-	}
-	struct ouichefs_dir_block *dblock = \
-		(struct ouichefs_dir_block *)bufferhead->b_data;
 
+	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
+	struct inode *parent = NULL;
+	for(uint32_t inode_shift = 0; inode_shift < OUICHEFS_INODES_PER_BLOCK; \
+				      inode_shift++) {
+		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
+		unsigned long ino = (inode_block - 1) * \
+				OUICHEFS_INODES_PER_BLOCK\
+					+ inode_shift;
 
-	struct inode *temp = NULL;
-	struct inode *res = NULL;
-	// Iterate over the index block
-	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
-		struct ouichefs_file *f = &dblock->files[i];
-		if (!f->inode) 
-			break;
-		// Return directory if child ino matches inode ino
-		if (f->inode == inode->i_ino) {
-			pr_info("Found matching ino. Returning dir.ino = %lu\n",
-				dir->i_ino);
-			res = dir; 
-			goto parent_release;
+		pr_debug("Checking NON REC inode with ino %lu.\n", ino);
+		// Something would be very wrong if this happened.
+		if (!current_inode) {
+			pr_debug("Skipping NULL inode.\n");
+			continue;
 		}
 
-		temp = ouichefs_iget(superblock, f->inode);
-
-		if (!temp) 
+		// Skip empty inodes
+		if (current_inode->index_block == 0) {
+			pr_debug("Skipping inode with index_block 0.\n");
 			continue;
-
-		if (IS_ERR(temp))
-			continue;
-
-		// Search subdirectory for inode
-		if (S_ISDIR(temp->i_mode)) {
-			res = get_parent_of_inode(temp, inode);
-			if(res && !IS_ERR(res)) {
-				iput(temp);
-				goto parent_release;
-			}
 		}
-		iput(temp);
+		
+		// Only regular files can be evicted.
+		if (!S_ISDIR(current_inode->i_mode)) {
+			pr_debug("Inode is not a directory.\n");
+			continue;
+		}
+
+		if (dir_contains_ino(superblock, current_inode, inode->i_ino)) {
+			pr_debug("Found parent inode with ino %lu.\n", \
+				ino);
+			parent = ouichefs_iget(superblock, ino);
+			break;	
+		}
 	}
 
-parent_release:
-	brelse(bufferhead);
-	return res;
+	brelse(bh);
+	return parent;
 }
 
+static bool dir_contains_ino(struct super_block *superblock, \
+			     struct ouichefs_inode *dir, uint32_t ino)
+{
+	if (!dir) 
+		return false;
+
+	struct buffer_head *bh = sb_bread(superblock, dir->index_block);
+	if (!bh) {
+		pr_warn("could not read buffer head.\n");
+		return false;
+	}
+
+	bool contains = false;
+	struct ouichefs_dir_block *dblock = \
+		(struct ouichefs_dir_block *)bh->b_data;
+	struct ouichefs_file *f = NULL;
+	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
+		f = &dblock->files[i];
+		if (!f->inode)
+			break;
+		if (f->inode == ino) {
+			contains = true;
+			break;
+		}
+	}
+	brelse(bh);
+	return contains;
+}
