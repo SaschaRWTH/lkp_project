@@ -14,6 +14,9 @@ static struct eviction_policy least_recently_used_policy = {
 
 static struct eviction_policy *current_policy = &least_recently_used_policy;
 struct inode *file_to_evict_rec(struct inode *inode);
+struct inode *file_to_evict_non_rec(struct super_block *superblock);
+struct inode *search_inode_store_block(struct super_block *superblock,\
+				       uint32_t inode_block); 
 
 /**
  * lru_compare - Compares two inodes based on which was used least recently.
@@ -58,17 +61,13 @@ struct inode *get_file_to_evict(struct inode *dir)
 	
 	// Switch function parameters to just receive superblock?
 	struct super_block *sb = dir->i_sb;
-	// Get root directory
-	struct inode *root = ouichefs_iget(sb, 0);
-	if (IS_ERR(root)) {
-		pr_warn("Could not retreive root directory.\n");
-		return root;
-	}
 
-	struct inode *evict = file_to_evict_rec(root);
+	struct inode *evict = file_to_evict_non_rec(sb);
 
-	if (!evict)
+	if (!evict) {
+		pr_warn("file_to_evict_non_rec did not return a file.\n");
 		return NULL;
+	}	
 	
 	if (!S_ISREG(evict->i_mode)) {
 		pr_warn("file_to_evict_rec did not return a file.\n");
@@ -80,6 +79,9 @@ struct inode *get_file_to_evict(struct inode *dir)
 }
 
 /**
+ * #TODO: REWRITE function to not be recursive.
+ * 	  Recursion should be avoided in the kernel.
+ * 
  * file_to_evict_rec - Implements a recursive DFS search through the 
  *      	       given directory and its subdirectories for the file
  *  		       to evict based on the current policy.
@@ -88,6 +90,7 @@ struct inode *get_file_to_evict(struct inode *dir)
  * 
  * Return: File to evict in the directory or its subdirectories.
  */
+[[deprecated("Search function is recursive and should not be used.")]]
 struct inode *file_to_evict_rec(struct inode *inode)
 {
 	if (!inode) 
@@ -132,7 +135,8 @@ struct inode *file_to_evict_rec(struct inode *inode)
 		if (!temp) 
 			break;
 		
-		temp = file_to_evict_rec(temp);
+		// Comment out, otherwise deprecation warning
+		// temp = file_to_evict_rec(temp);
 		
 
 		if (!remove) {
@@ -248,7 +252,96 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 	return remove;
 }
 
+struct inode *file_to_evict_non_rec(struct super_block *superblock) 
+{
+	if (!superblock) {
+		pr_warn("The given superblock was NULL.\n");
+		return NULL;
+	}
 
+	// Search inode store for inode to evict 
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
+
+	// Loop through all inode store blocks
+	struct inode *remove = NULL;
+	for(int inode_block = 0; inode_block < sbi->nr_istore_blocks; \
+				 inode_block++) {
+		struct inode *inode = search_inode_store_block(superblock,\
+							       inode_block + 1);
+		if (!remove) {
+			remove = inode;
+			continue;
+		}
+
+		if (!inode || IS_ERR(inode)) 
+			continue;
+
+		if (current_policy->compare(remove, inode) == inode) {
+			iput(remove);
+			remove = inode;
+		}
+		else {
+			iput(inode);
+		}
+	}
+
+	return remove;
+}
+
+struct inode *search_inode_store_block(struct super_block *superblock,\
+				       uint32_t inode_block) 
+{
+	if (!superblock) 
+		return NULL;
+
+	if (inode_block < 1 ) 
+		return NULL;
+
+	struct buffer_head *bh = sb_bread(superblock, inode_block);
+	if (!bh)
+		return ERR_PTR(-EIO);
+
+	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
+	struct inode *remove = NULL;
+	for(uint32_t inode_shift = 0; inode_shift < OUICHEFS_INODES_PER_BLOCK; \
+				      inode_shift++) {
+		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
+		
+		// Something would be very wrong if this happened.
+		if(!current_inode)
+			continue;
+
+		// Skip empty inodes
+		if(current_inode->index_block == 0)
+			continue;
+		
+		// Only regular files can be evicted.
+		if(!S_ISREG(current_inode->i_mode)) 
+			continue;
+		
+		int ino = (inode_block - 1) * OUICHEFS_INODES_PER_BLOCK + \
+			  inode_shift;
+		struct inode *inode = ouichefs_iget(superblock, ino);
+		if (!inode || IS_ERR(inode)) 
+			continue;
+		
+		if (!remove) {
+			remove = inode;
+			continue;
+		}
+		
+		if (current_policy->compare(remove, inode) == inode) {
+			iput(remove);
+			remove = inode;
+		}
+		else {
+			iput(inode);
+		}
+	}
+
+	brelse(bh);
+	return remove;
+}
 
 /**
  * #TODO: Write function to set another policy and export it.

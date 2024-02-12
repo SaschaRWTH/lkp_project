@@ -9,6 +9,9 @@
  * the inode to evict. The advantage is that, for additional policies, only
  * a compare function needs to be implemented instead of a complete search.
  * The disadvantage is general overhead and decreased performance.
+ * 
+ * Additionally, comparing struct inodes instead of sturct ouichefs_inodes
+ * is more inefficient but allows for more policies to be implemented.
  */
 struct eviction_policy {
 	/* Name of eviction policy */
