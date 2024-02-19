@@ -6,5 +6,6 @@
 
 int check_for_eviction(struct inode *dir);
 int dir_eviction(struct inode *dir);
+int trigger_eviction(struct super_block *sb);
 
 #endif /*_OUICHEFS_EVICTION_H*/

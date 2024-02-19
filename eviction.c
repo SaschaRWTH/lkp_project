@@ -21,7 +21,6 @@ static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block);
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino);
-static int trigger_eviction(struct inode *dir);
 /**
  * Currently we have a 
  * kernel BUG at fs/inode.c:1804!
@@ -70,7 +69,7 @@ int check_for_eviction(struct inode *dir)
 
 	pr_info("The threshold was met. Finding file to evict.\n");
 
-	errc = trigger_eviction(dir);
+	errc = trigger_eviction(dir->i_sb);
 	return errc;
 }
 
@@ -83,10 +82,12 @@ int check_for_eviction(struct inode *dir)
  * Return: 0 if it could be performed
  * 	   and < 0 if the eviction was failed.
  */
-static int trigger_eviction(struct inode *dir) 
+int trigger_eviction(struct super_block *sb) 
 {
 	int errc = 0;
-	struct inode *evict = get_file_to_evict(dir);
+	//Print address of the superblock
+	pr_info("Superblock address: %p\n", sb);
+	struct inode *evict = get_file_to_evict(sb);
 	pr_info("Found inode with ino %lu.\n", evict->i_ino);
 
 	if (!evict) {
@@ -418,8 +419,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 		unsigned long ino = (inode_block - 1) * \
 				OUICHEFS_INODES_PER_BLOCK\
 					+ inode_shift;
-
-		pr_debug("Checking NON REC inode with ino %lu.\n", ino);
+					
 		// Something would be very wrong if this happened.
 		if (!current_inode) {
 			pr_debug("Skipping NULL inode.\n");
@@ -427,16 +427,14 @@ static struct inode *search_parent_isb(struct inode *inode, \
 		}
 
 		// Skip empty inodes
-		if (current_inode->index_block == 0) {
-			pr_debug("Skipping inode with index_block 0.\n");
+		if (current_inode->index_block == 0) 
 			continue;
-		}
+		
 		
 		// Only regular files can be evicted.
-		if (!S_ISDIR(current_inode->i_mode)) {
-			pr_debug("Inode is not a directory.\n");
+		if (!S_ISDIR(current_inode->i_mode))
 			continue;
-		}
+		
 
 		if (dir_contains_ino(superblock, current_inode, inode->i_ino)) {
 			pr_debug("Found parent inode with ino %lu.\n", \
