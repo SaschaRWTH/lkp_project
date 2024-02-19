@@ -296,9 +296,6 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 		struct inode *inode = ouichefs_iget(superblock, ino);
 		if (!inode || IS_ERR(inode)) 
 			goto while_cont;
-		
-		if (IS_DIRTY(inode))
-			pr_info("inode with ino %lu is dirty.\n", inode->i_ino);
 
 		if (!remove) {
 			remove = inode;
