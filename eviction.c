@@ -17,12 +17,12 @@ static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
 static struct dentry *inode_to_dentry(struct inode *parent,\
 				      struct inode *inode);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
-static struct inode *get_parent_of_inode_non_rec(struct inode *inode);
+static struct inode *search_parent_inode_store(struct inode *inode);
 static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block);
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino);
-
+static int trigger_evction(struct mnt_idmap *idmap, struct inode *dir);
 /**
  * Currently we have a 
  * kernel BUG at fs/inode.c:1804!
@@ -47,8 +47,8 @@ const u16 eviction_threshhold = 80;
 */
 
 /**
- * general_eviction - Checks the remaining space and evicts a file based on
- * 		      the current policy, if a certin threshold is met. 
+ * check_for_eviction - Checks the remaining space and evicts a file based on
+ * 		        the current policy, if a certin threshold is met. 
  * 
  * @dir: Directory where a new node was created.
  * @idmap: Idmap of the mount the inode was found from.
@@ -57,7 +57,7 @@ const u16 eviction_threshhold = 80;
  * 	   0 if it could be performed
  * 	   and < 0 if the eviction was failed.
  */
-int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
+int check_for_eviction(struct mnt_idmap *idmap, struct inode *dir)
 {
 	int errc = 0;
 	
@@ -72,6 +72,23 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 
 	pr_info("The threshold was met. Finding file to evict.\n");
 
+	errc = trigger_evction(idmap, dir);
+	return errc;
+}
+
+/**
+ * trigger_evction - triggers the search for and eviction of a file based
+ *    		     on the current policy.
+ * 
+ * @dir: Directory where a new node was created.
+ * @idmap: Idmap of the mount the inode was found from.
+ * 
+ * Return: 0 if it could be performed
+ * 	   and < 0 if the eviction was failed.
+ */
+static int trigger_evction(struct mnt_idmap *idmap, struct inode *dir) 
+{
+	int errc = 0;
 	struct inode *evict = get_file_to_evict(dir);
 	pr_info("Found inode with ino %lu.\n", evict->i_ino);
 
@@ -91,7 +108,7 @@ int general_eviction(struct mnt_idmap *idmap, struct inode *dir)
 		goto general_put;
 	}
 	
-	struct inode *parent = get_parent_of_inode_non_rec(evict);
+	struct inode *parent = search_parent_inode_store(evict);
 
 	if (!parent) {
 		pr_warn("Could not find parent of file to evict.\n");
@@ -344,7 +361,15 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode)
 	return name;
 }
 
-static struct inode *get_parent_of_inode_non_rec(struct inode *inode) 
+/**
+ * search_parent_inode_store - searches for the parent of a given inode in the
+ * 			       inode store 
+ * 
+ * @inode: inode for which to find the parent.
+ * 
+ * Return: pointer to the parent if found, NULL otherwise.
+ */
+static struct inode *search_parent_inode_store(struct inode *inode) 
 {
 	if (!inode) {
 		pr_warn("The given inode was NULL.\n");
@@ -368,7 +393,13 @@ static struct inode *get_parent_of_inode_non_rec(struct inode *inode)
 	return NULL;
 }
 /**
- * isb = inode store block
+ * search_parent_isb - searches for the parent of an inode in a block of the 
+ * 		       inode store
+ * 
+ * @inode: inode of which to find the parent
+ * @inode_block: index of the block in the inode store to search
+ * 
+ * Return: pointer to the parent if it was found, NULL otherwise.
 */
 static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block) 
@@ -424,6 +455,16 @@ static struct inode *search_parent_isb(struct inode *inode, \
 	return parent;
 }
 
+/**
+ * dir_contains_ino - checks whether an inode with given i_no is contained
+ * 		      in a given directory
+ * 
+ * @superblock: superblock of directory and inode
+ * @dir: directory to search
+ * @ino: i_no of inode to search
+ * 
+ * Return: true if the inode is contained, false otherwise.
+ */
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino)
 {
