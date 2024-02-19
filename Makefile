@@ -1,7 +1,7 @@
 obj-m += ouichefs.o
 ouichefs-objs := fs.o super.o inode.o file.o dir.o policy.o eviction.o
 
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+KERNELDIR ?= ~/RWTH/LKP/Resources/linux-6.5.7
 
 all:
 	make -C $(KERNELDIR) M=$(PWD) modules

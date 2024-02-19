@@ -1,0 +1,51 @@
+{
+    "configurations": [
+        {
+            "name": "Linux_Kernel",
+            "includePath": [
+                "${default}",
+                "~/RWTH/LKP/Resources/linux-6.5.7/include",
+                "~/RWTH/LKP/Resources/linux-6.5.7/arch/x86/include",
+                "~/RWTH/LKP/Resources/linux-6.5.7/arch/x86/include/uapi",
+                "~/RWTH/LKP/Resources/linux-6.5.7/arch/x86/include/generated",
+                "~/RWTH/LKP/Resources/linux-6.5.7/arch/x86/include/generated/uapi",
+                "~/RWTH/LKP/Resources/linux-6.5.7/include/generated/uapi",
+                "~/RWTH/LKP/Resources/linux-6.5.7/include/uapi",
+                "/usr/lib/gcc/x86_64-linux-gnu/11/include",
+                "/usr/local/include/"
+            ],
+            "compilerArgs": [
+                "-nostdinc",
+                "-include",
+                "/${workspaceRoot}/linux-6.5.7/include/linux/kconfig.h",
+                "-include",
+                "/${workspaceRoot}/linux-6.5.7/include/linux/compiler_types.h"
+            ],
+            "defines": [
+                "__KERNEL__",
+                "KBUILD_MODNAME",
+                "MODULE"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "clang-x64",
+            "browse": {
+                "path": [
+                    "/${workspaceRoot}/linux-6.5.7/include/",
+                    "${workspaceRoot}"
+                ],
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11"
+        },
+        {
+            "name": "Linux_dev",
+            "includePath": [
+                "${default}"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc"
+        }
+    ],
+    "version": 4
+}

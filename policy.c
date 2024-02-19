@@ -52,17 +52,13 @@ static struct inode *lru_compare(struct inode *first, struct inode *second)
  *  get_file_to_evict - Gets a file from the fs to evict based on the 
  *                      current policy.
  * 
- * @dir: A directory in the fs. The super_bock would also suffice, to give
- *       an inode is just easier.
+ * @sb: Super block of the file system.
  * 
  * Return: The inode to evict based on the current eviction policy.
  */
-struct inode *get_file_to_evict(struct inode *dir)
+struct inode *get_file_to_evict(struct super_block *sb)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
-	
-	// Switch function parameters to just receive superblock?
-	struct super_block *sb = dir->i_sb;
 
 	struct inode *evict = file_to_evict_non_rec(sb);
 

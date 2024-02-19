@@ -24,7 +24,7 @@ struct eviction_policy {
 	struct inode *(*compare)(struct inode *, struct inode *);
 };
 
-struct inode *get_file_to_evict(struct inode *parent);
+struct inode *get_file_to_evict(struct super_block *parent);
 
 struct inode *dir_get_file_to_evict(struct inode *dir);
 
