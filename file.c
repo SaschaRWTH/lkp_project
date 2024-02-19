@@ -14,6 +14,7 @@
 #include <linux/mpage.h>
 
 #include "ouichefs.h"
+#include "eviction.h"
 #include "bitmap.h"
 
 /*
@@ -180,6 +181,7 @@ static int ouichefs_write_end(struct file *file, struct address_space *mapping,
 		}
 	}
 end:
+	check_for_eviction(inode);
 	return ret;
 }
 

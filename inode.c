@@ -243,7 +243,7 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* Check if parent directory is full */
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
 		// Return an error if dir eviction could not be performed.
-		int dir_evc = dir_eviction(idmap, dir);
+		int dir_evc = dir_eviction(dir);
 		if (dir_evc == ONLY_CONTAINS_DIR) {
 			ret = -EMLINK;
 			goto end;
@@ -296,7 +296,7 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	d_instantiate(dentry, inode);
 
 	// Add error handling.
-	check_for_eviction(idmap, dir);
+	check_for_eviction(dir);
 
 	/* TODO: Why is inode not put here? Shouldnt it be put?
 		 It is not returned and the previous functions

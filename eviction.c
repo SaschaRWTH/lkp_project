@@ -12,8 +12,7 @@
 #include "ouichefs.h"
 
 static int is_threshold_met(struct inode *dir);
-static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
-		      struct inode *file);
+static int evict_file(struct inode *dir, struct inode *file);
 static struct dentry *inode_to_dentry(struct inode *parent,\
 				      struct inode *inode);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
@@ -22,7 +21,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block);
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino);
-static int trigger_evction(struct mnt_idmap *idmap, struct inode *dir);
+static int trigger_eviction(struct inode *dir);
 /**
  * Currently we have a 
  * kernel BUG at fs/inode.c:1804!
@@ -51,13 +50,12 @@ const u16 eviction_threshhold = 80;
  * 		        the current policy, if a certin threshold is met. 
  * 
  * @dir: Directory where a new node was created.
- * @idmap: Idmap of the mount the inode was found from.
  * 
  * Return: EVICTION_NOT_NECESSARY if the general eviction was not necessary, 
  * 	   0 if it could be performed
  * 	   and < 0 if the eviction was failed.
  */
-int check_for_eviction(struct mnt_idmap *idmap, struct inode *dir)
+int check_for_eviction(struct inode *dir)
 {
 	int errc = 0;
 	
@@ -72,21 +70,20 @@ int check_for_eviction(struct mnt_idmap *idmap, struct inode *dir)
 
 	pr_info("The threshold was met. Finding file to evict.\n");
 
-	errc = trigger_evction(idmap, dir);
+	errc = trigger_eviction(dir);
 	return errc;
 }
 
 /**
- * trigger_evction - triggers the search for and eviction of a file based
+ * trigger_eviction - triggers the search for and eviction of a file based
  *    		     on the current policy.
  * 
  * @dir: Directory where a new node was created.
- * @idmap: Idmap of the mount the inode was found from.
  * 
  * Return: 0 if it could be performed
  * 	   and < 0 if the eviction was failed.
  */
-static int trigger_evction(struct mnt_idmap *idmap, struct inode *dir) 
+static int trigger_eviction(struct inode *dir) 
 {
 	int errc = 0;
 	struct inode *evict = get_file_to_evict(dir);
@@ -122,7 +119,7 @@ static int trigger_evction(struct mnt_idmap *idmap, struct inode *dir)
 	}
 
 	loff_t evicted_bytes = evict->i_size;
-	errc = evict_file(idmap, parent, evict);
+	errc = evict_file(parent, evict);
 	if (!errc) 
 		pr_info("Successfully evicted %lld bytes.\n", evicted_bytes);
 	else 
@@ -168,11 +165,10 @@ static int is_threshold_met(struct inode *dir)
  * directory.
  * 
  * @dir: Directory from which to evict.
- * @idmap: Idmap of the mount the inode was found from.
  * 
  * Return: 0 if the directory eviction could be performed.
  */
-int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
+int dir_eviction(struct inode *dir)
 {
 	int errc = 0;
 
@@ -209,7 +205,7 @@ int dir_eviction(struct mnt_idmap *idmap, struct inode *dir)
 	// }
 
 	// Evict the node
-	errc = evict_file(idmap, dir, remove);
+	errc = evict_file(dir, remove);
 
 dir_put:
 	iput(remove);
@@ -221,8 +217,7 @@ dir_put:
  * @parent: Parent directory of file.
  * @file: File to evict. 
  */
-static int evict_file(struct mnt_idmap *idmap, struct inode *dir,\
-		      struct inode *file)
+static int evict_file(struct inode *dir, struct inode *file)
 {
 	if (!dir) {
 		pr_info("The given parent is NULL.\n");
