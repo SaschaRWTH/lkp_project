@@ -7,6 +7,8 @@
 #include "policy.h"
 #include "ouichefs.h"
 
+#define IS_DIRTY(x) (((x))->i_state & I_DIRTY) != 0
+
 static struct inode *lru_compare(struct inode *node1, struct inode *node2);
 static struct eviction_policy least_recently_used_policy = {
 	.name = "LRU Policy",
@@ -299,33 +301,42 @@ struct inode *search_inode_store_block(struct super_block *superblock,\
 	if (!bh)
 		return ERR_PTR(-EIO);
 
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
 	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
 	struct inode *remove = NULL;
-	for(uint32_t inode_shift = 0; inode_shift < OUICHEFS_INODES_PER_BLOCK; \
-				      inode_shift++) {
+	uint32_t ino = find_next_zero_bit(sbi->ifree_bitmap, \
+				sbi->nr_inodes, \
+				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK);
+	pr_info("Start ino %d block %d\n", ino, inode_block);
+	while (ino < (inode_block) * OUICHEFS_INODES_PER_BLOCK) {
+		pr_info("Checking inode with ino %d\n", ino);
+		uint32_t inode_shift = ino - \
+				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK;
 		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
+		
 		
 		// Something would be very wrong if this happened.
 		if(!current_inode)
-			continue;
+			goto while_cont;
 
 		// Skip empty inodes
 		if(current_inode->index_block == 0)
-			continue;
+			goto while_cont;
 		
 		// Only regular files can be evicted.
 		if(!S_ISREG(current_inode->i_mode)) 
-			continue;
+			goto while_cont;
 		
-		int ino = (inode_block - 1) * OUICHEFS_INODES_PER_BLOCK + \
-			  inode_shift;
 		struct inode *inode = ouichefs_iget(superblock, ino);
 		if (!inode || IS_ERR(inode)) 
-			continue;
+			goto while_cont;
 		
+		if (IS_DIRTY(inode))
+			pr_info("inode with ino %lu is dirty.\n", inode->i_ino);
+
 		if (!remove) {
 			remove = inode;
-			continue;
+			goto while_cont;
 		}
 		
 		if (current_policy->compare(remove, inode) == inode) {
@@ -335,6 +346,12 @@ struct inode *search_inode_store_block(struct super_block *superblock,\
 		else {
 			iput(inode);
 		}
+
+while_cont:
+		ino = find_next_zero_bit(sbi->ifree_bitmap, \
+				     sbi->nr_inodes, ino + 1);
+		if(ino == sbi->nr_inodes)
+			break;
 	}
 
 	brelse(bh);

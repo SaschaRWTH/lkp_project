@@ -419,8 +419,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 		unsigned long ino = (inode_block - 1) * \
 				OUICHEFS_INODES_PER_BLOCK\
 					+ inode_shift;
-
-		pr_debug("Checking NON REC inode with ino %lu.\n", ino);
+					
 		// Something would be very wrong if this happened.
 		if (!current_inode) {
 			pr_debug("Skipping NULL inode.\n");
@@ -428,16 +427,14 @@ static struct inode *search_parent_isb(struct inode *inode, \
 		}
 
 		// Skip empty inodes
-		if (current_inode->index_block == 0) {
-			pr_debug("Skipping inode with index_block 0.\n");
+		if (current_inode->index_block == 0) 
 			continue;
-		}
+		
 		
 		// Only regular files can be evicted.
-		if (!S_ISDIR(current_inode->i_mode)) {
-			pr_debug("Inode is not a directory.\n");
+		if (!S_ISDIR(current_inode->i_mode))
 			continue;
-		}
+		
 
 		if (dir_contains_ino(superblock, current_inode, inode->i_ino)) {
 			pr_debug("Found parent inode with ino %lu.\n", \
