@@ -3,6 +3,8 @@
 
 #define MAX_EVICTION_NAME 16
 #define MAX_EVICTION_DESCRIPTION 256
+
+#define POLICY_ALREADY_REGISTERED 3
 /**
  * Struct defining an eviction policy for the rotating fs feature.
  * The struct implments a compare function which is used to find 
@@ -27,5 +29,9 @@ struct eviction_policy {
 struct inode *get_file_to_evict(struct super_block *parent);
 
 struct inode *dir_get_file_to_evict(struct inode *dir);
+
+int register_policy(struct eviction_policy *policy);
+
+void unregister_policy(struct eviction_policy *policy);
 
 #endif /*_OUICHEFS_POLICY_H*/

@@ -1,5 +1,5 @@
 obj-m += ouichefs.o
-ouichefs-objs := fs.o super.o inode.o file.o dir.o policy.o eviction.o
+ouichefs-objs := fs.o super.o inode.o file.o dir.o policy.o eviction.o 
 
 KERNELDIR ?= ~/RWTH/LKP/Resources/linux-6.5.7
 
