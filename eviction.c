@@ -23,28 +23,11 @@ static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block);
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino);
-/**
- * Currently we have a 
- * kernel BUG at fs/inode.c:1804!
- * iput wants to put inode but I_CLEAR is set
- * (Added by clear_inode().  In this state the inode is
- * clean and can be destroyed.)
- * 
- * Dont know why the kernel bug occures. 
- * Not putting inode correctly?
- */
 
 /**
  * Percentage threshold at which the eviction of a file is triggered.
  */
 const u16 eviction_threshhold = 80;
-
-/** 
- * #TODO: _create should call a check for general eviction
- * or similar with the eviction check and general 
- * eviction should then evit.
- * -> we can let the user trigger eviction easier. 
-*/
 
 /**
  * check_for_eviction - Checks the remaining space and evicts a file based on
