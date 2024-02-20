@@ -6,6 +6,7 @@
 #include <linux/rwsem.h>
 
 #include "policy.h"
+#include "eviction.h"
 #include "ouichefs.h"
 
 /**
@@ -270,12 +271,9 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
 	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
 	struct inode *remove = NULL;
-	uint32_t ino = find_next_zero_bit(sbi->ifree_bitmap, \
-				sbi->nr_inodes, \
-				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK);
-	pr_info("Start ino %d block %d\n", ino, inode_block);
-	while (ino < (inode_block) * OUICHEFS_INODES_PER_BLOCK) {
-		pr_info("Checking inode with ino %d\n", ino);
+	uint32_t ino;
+	istore_for_each_inode(ino, sbi, inode_block) {
+		pr_debug("Checking inode with ino %d\n", ino);
 		uint32_t inode_shift = ino - \
 				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK;
 		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
@@ -283,23 +281,23 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 		
 		// Something would be very wrong if this happened.
 		if(!current_inode)
-			goto while_cont;
+			continue;
 
 		// Skip empty inodes
 		if(current_inode->index_block == 0)
-			goto while_cont;
+			continue;
 		
 		// Only regular files can be evicted.
 		if(!S_ISREG(current_inode->i_mode)) 
-			goto while_cont;
+			continue;
 		
 		struct inode *inode = ouichefs_iget(superblock, ino);
 		if (!inode || IS_ERR(inode)) 
-			goto while_cont;
+			continue;
 
 		if (!remove) {
 			remove = inode;
-			goto while_cont;
+			continue;
 		}
 		
 		if (current_policy->compare(remove, inode) == inode) {
@@ -309,12 +307,6 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 		else {
 			iput(inode);
 		}
-
-while_cont:
-		ino = find_next_zero_bit(sbi->ifree_bitmap, \
-				     sbi->nr_inodes, ino + 1);
-		if(ino == sbi->nr_inodes)
-			break;
 	}
 
 	brelse(bh);
@@ -323,10 +315,7 @@ while_cont:
 
 
 
-/**
- * #TODO: Write function to set another policy and export it.
- * register_policy - registers a given policy as the current policy.
- * 
+/** 
  * @policy: policy to register.
  * 
  * Return: 0 is successfully registered, -POLICY_ALREADY_REGISTERED if a policy

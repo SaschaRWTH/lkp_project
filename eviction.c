@@ -11,6 +11,8 @@
 #include "eviction.h"
 #include "ouichefs.h"
 
+
+
 static int is_threshold_met(struct inode *dir);
 static int evict_file(struct inode *dir, struct inode *file);
 static struct dentry *inode_to_dentry(struct inode *parent,\
@@ -413,12 +415,14 @@ static struct inode *search_parent_isb(struct inode *inode, \
 
 	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
 	struct inode *parent = NULL;
-	for(uint32_t inode_shift = 0; inode_shift < OUICHEFS_INODES_PER_BLOCK; \
-				      inode_shift++) {
+
+	uint32_t ino;
+	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
+	istore_for_each_inode(ino, sbi, inode_block) {
+		pr_debug("Checking inode with ino %d\n", ino);
+		uint32_t inode_shift = ino - \
+				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK;
 		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
-		unsigned long ino = (inode_block - 1) * \
-				OUICHEFS_INODES_PER_BLOCK\
-					+ inode_shift;
 					
 		// Something would be very wrong if this happened.
 		if (!current_inode) {
@@ -437,7 +441,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 		
 
 		if (dir_contains_ino(superblock, current_inode, inode->i_ino)) {
-			pr_debug("Found parent inode with ino %lu.\n", \
+			pr_debug("Found parent inode with ino %d.\n", \
 				ino);
 			parent = ouichefs_iget(superblock, ino);
 			break;	
