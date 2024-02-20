@@ -1,6 +1,7 @@
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/kernel.h>
+#include <linux/list.h>
 #include <linux/dcache.h>
 #include <linux/buffer_head.h>
 #include <linux/audit.h>
@@ -23,6 +24,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 				       uint32_t inode_block);
 static bool dir_contains_ino(struct super_block *superblock, \
 			     struct ouichefs_inode *dir, uint32_t ino);
+static u16 list_count(struct hlist_head *list);
 
 /**
  * Percentage threshold at which the eviction of a file is triggered.
@@ -199,9 +201,12 @@ dir_put:
 }
 
 /**
- * Evicts a given file. 
+ * evict_file - Evicts a given file. 
+ * 
  * @parent: Parent directory of file.
  * @file: File to evict. 
+ * 
+ * Rerturn: 0 if the eviction was successful, < 0 if it failed.
  */
 static int evict_file(struct inode *dir, struct inode *file)
 {
@@ -214,11 +219,23 @@ static int evict_file(struct inode *dir, struct inode *file)
 		return -1;
 	}
 
+	u16 dentries_count = list_count(&file->i_dentry);
+	pr_debug("Number of dentries of file: %hu.\n", dentries_count);
+	pr_debug("Number of references to file: %d.\n", file->i_count.counter);
+
+	// Check if the file is still in use
+	// Only checks if it is referenced by another process or instance.
+	// We only account for the dentries of the file which should have
+	// no effect on its deletion.
+	if (file->i_count.counter > dentries_count + 1) {
+		pr_info("The file is still in use by another process.\n");
+		return -1;
+	}
+
 	struct dentry *dentry = inode_to_dentry(dir, file);
-	pr_info("dentry ino = %lu.\n", dentry->d_inode->i_ino);
 
 	if (!dentry || IS_ERR(dentry)) {
-		pr_info("The dentry could not be found.\n");
+		pr_warn("The dentry could not be found.\n");
 		return -1;
 	}
 
@@ -226,7 +243,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 		dentry->d_inode->i_ino);
 	int error = dir->i_op->unlink(dir, dentry);
 	if (error) 
-		pr_info("(unlink): Could not unlink file.\n");
+		pr_err("(unlink): Could not unlink file.\n");
 	
 	/*
 	 * Unnecessary? I dont know. 
@@ -472,4 +489,21 @@ static bool dir_contains_ino(struct super_block *superblock, \
 	}
 	brelse(bh);
 	return contains;
+}
+
+/**
+ *  list_count - counts the number of elements in a list
+ * 
+ * @list: list to count
+ * 
+ * Return: number of elements in the list
+ */
+static u16 list_count(struct hlist_head *list)
+{
+    struct hlist_node *pos;
+    u16 count = 0;
+    hlist_for_each(pos, list) {
+        count++;
+    }
+    return count;
 }

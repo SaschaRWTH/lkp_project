@@ -241,6 +241,12 @@ static struct inode *file_to_evict_inode_store(struct super_block *superblock)
 		else {
 			iput(inode);
 		}
+
+		// Check if no more alive inodes are available
+		if(find_next_zero_bit(sbi->ifree_bitmap, sbi->nr_inodes, \
+			((inode_block) - 1) * OUICHEFS_INODES_PER_BLOCK)
+			== sbi->nr_inodes)
+			break;
 	}
 
 	return remove;
@@ -280,6 +286,7 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 		
 		
 		// Something would be very wrong if this happened.
+		// We'll just ignore it.
 		if(!current_inode)
 			continue;
 
