@@ -7,11 +7,11 @@
 #define POLICY_ALREADY_REGISTERED 3
 /**
  * Struct defining an eviction policy for the rotating fs feature.
- * The struct implments a compare function which is used to find 
+ * The struct implments a compare function which is used to find
  * the inode to evict. The advantage is that, for additional policies, only
  * a compare function needs to be implemented instead of a complete search.
  * The disadvantage is general overhead and decreased performance.
- * 
+ *
  * Additionally, comparing struct inodes instead of sturct ouichefs_inodes
  * is more inefficient but allows for more policies to be implemented.
  */

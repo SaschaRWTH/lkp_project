@@ -10,7 +10,7 @@ int trigger_eviction(struct super_block *sb);
 
 /**
  *  istore_for_each_inode - iterates over all (alive) inodes of a inode store.
- * 			
+ *
  * @ino: uint32_t current inode number.
  * @sbi: superblock information of the inode
  * @block_index: index of the data block to iterate over
