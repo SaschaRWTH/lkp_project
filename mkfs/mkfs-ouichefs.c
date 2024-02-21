@@ -293,15 +293,15 @@ static int write_data_blocks(int fd, struct ouichefs_superblock *sb)
 	/* struct ouichefs_file_index_block foo_block; */
 	/* char *foo; */
 	/* uint32_t first_block = le32toh(sb->nr_istore_blocks) + */
-	/* 	le32toh(sb->nr_ifree_blocks) + le32toh(sb->nr_bfree_blocks) + 3; */
+	/*	le32toh(sb->nr_ifree_blocks) + le32toh(sb->nr_bfree_blocks) + 3; */
 
 	/* foo = malloc(OUICHEFS_BLOCK_SIZE); */
 	/* if (!foo) */
-	/* 	return -1; */
+	/*	return -1; */
 	/* memset(foo, 0, OUICHEFS_BLOCK_SIZE); */
 
 	/* end: */
-	/* 	free(foo); */
+	/*	free(foo); */
 
 	return ret;
 }
