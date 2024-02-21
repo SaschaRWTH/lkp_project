@@ -242,13 +242,13 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 
 	/* Check if parent directory is full */
 	if (dblock->files[OUICHEFS_MAX_SUBFILES - 1].inode != 0) {
-		// Return an error if dir eviction could not be performed.
+		/* Return an error if dir eviction could not be performed. */
 		int dir_evc = dir_eviction(dir);
 		if (dir_evc == ONLY_CONTAINS_DIR) {
 			ret = -EMLINK;
 			goto end;
 		}
-		if (dir_evc < 0) { 
+		if (dir_evc < 0) {
 			ret = dir_evc;
 			goto end;
 		}
@@ -295,16 +295,8 @@ static int ouichefs_create(struct mnt_idmap *idmap, struct inode *dir,
 	/* setup dentry */
 	d_instantiate(dentry, inode);
 
-	// Add error handling.
+	/* Add error handling. */
 	check_for_eviction(dir);
-
-	/* TODO: Why is inode not put here? Shouldnt it be put?
-		 It is not returned and the previous functions
-		 Should not put inode on there own?
-		 ext4 implementation of create function also put inode
-		 at end if function?
-		 https://elixir.bootlin.com/linux/
-		 v6.5.7/source/fs/ext4/namei.c#L2820 */
 
 	return 0;
 

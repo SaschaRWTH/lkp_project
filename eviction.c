@@ -12,15 +12,13 @@
 #include "eviction.h"
 #include "ouichefs.h"
 
-
-
 static int is_threshold_met(struct inode *dir);
 static int evict_file(struct inode *dir, struct inode *file);
 static struct dentry *inode_to_dentry(struct inode *, struct inode *);
 static char *get_name_of_inode(struct inode *dir, struct inode *inode);
 static struct inode *search_parent_inode_store(struct inode *inode);
 static struct inode *search_parent_isb(struct inode *, uint32_t);
-static bool dir_contains_ino(struct super_block *superblock, \
+static bool dir_contains_ino(struct super_block *superblock,
 			     struct ouichefs_inode *dir, uint32_t ino);
 static u16 list_count(struct hlist_head *list);
 
@@ -31,13 +29,13 @@ const u16 eviction_threshhold = 20;
 
 /**
  * check_for_eviction - Checks the remaining space and evicts a file based on
- * 		        the current policy, if a certin threshold is met.
+ *		        the current policy, if a certin threshold is met.
  *
  * @dir: Directory where a new node was created.
  *
  * Return: EVICTION_NOT_NECESSARY if the general eviction was not necessary,
- * 	   0 if it could be performed
- * 	   and < 0 if the eviction was failed.
+ *	   0 if it could be performed
+ *	   and < 0 if the eviction was failed.
  */
 int check_for_eviction(struct inode *dir)
 {
@@ -60,12 +58,12 @@ int check_for_eviction(struct inode *dir)
 
 /**
  * trigger_eviction - triggers the search for and eviction of a file based
- *    		     on the current policy.
+ *		      on the current policy.
  *
  * @dir: Directory where a new node was created.
  *
  * Return: 0 if it could be performed
- * 	   and < 0 if the eviction was failed.
+ *	   and < 0 if the eviction was failed.
  */
 int trigger_eviction(struct super_block *sb)
 {
@@ -73,6 +71,7 @@ int trigger_eviction(struct super_block *sb)
 	/* Print address of the superblock */
 	pr_info("Superblock address: %p\n", sb);
 	struct inode *evict = get_file_to_evict(sb);
+
 	pr_info("Found inode with ino %lu.\n", evict->i_ino);
 
 	if (!evict) {
@@ -105,6 +104,7 @@ int trigger_eviction(struct super_block *sb)
 	}
 
 	loff_t evicted_bytes = evict->i_size;
+
 	errc = evict_file(parent, evict);
 	if (!errc)
 		pr_info("Successfully evicted %lld bytes.\n", evicted_bytes);
@@ -130,15 +130,17 @@ static int is_threshold_met(struct inode *dir)
 		return -1;
 
 	struct super_block *sb = dir->i_sb;
+
 	if (sb == NULL)
 		return -1;
 
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(sb);
+
 	if (sbi == NULL)
 		return -1;
 
 
-	u32 threshold_number = \
+	u32 threshold_number =
 		(sbi->nr_blocks * (eviction_threshhold)) / 100;
 	if (sbi->nr_free_blocks < threshold_number)
 		return 1;
@@ -208,6 +210,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 	}
 
 	u16 dentries_count = list_count(&file->i_dentry);
+
 	pr_debug("Number of dentries of file: %hu.\n", dentries_count);
 	pr_debug("Number of references to file: %d.\n", file->i_count.counter);
 
@@ -232,6 +235,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 	pr_info("dir ino: %lu, dentry.inode.ino: %lu.\n", dir->i_ino,
 		dentry->d_inode->i_ino);
 	int error = dir->i_op->unlink(dir, dentry);
+
 	if (error)
 		pr_err("(unlink): Could not unlink file.\n");
 
@@ -245,7 +249,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 	 * dont_mount(dentry);
 	 * detach_mounts(dentry);
 	 * Do i need them?
-	 * I have no clue.
+	 * I have no clue but it seems to work without them.
 	 */
 
 	return error;
@@ -259,10 +263,11 @@ static int evict_file(struct inode *dir, struct inode *file)
  *
  * Return: The dentry of the inode.
  *
- **/
+ */
 static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 {
 	char *name = get_name_of_inode(dir, inode);
+
 	if (!name) {
 		pr_warn("Could not find name of inode.\n");
 		return NULL;
@@ -288,7 +293,7 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 	 * 'dentry->d_parent->d_inode' sets the dentry->d_inode
 	 * property to the parent as well, if i understand correctly???
 	 *
-	 * Jap, thats whats i happening, but only after reboot?
+	 * Jap, thats what is happening, but only after reboot?
 	 * Why?
 	 * What?
 	 *
@@ -351,7 +356,7 @@ static char *get_name_of_inode(struct inode *dir, struct inode *inode)
 
 /**
  * search_parent_inode_store - searches for the parent of a given inode in the
- * 			       inode store
+ *			       inode store
  *
  * @inode: inode for which to find the parent.
  *
@@ -369,28 +374,27 @@ static struct inode *search_parent_inode_store(struct inode *inode)
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
 
 	pr_debug("Number of istore blocks: %d.\n", sbi->nr_istore_blocks);
-	for (int inode_block = 0; inode_block < sbi->nr_istore_blocks; \
-				 inode_block++) {
+	for (int inode_block = 0; inode_block < sbi->nr_istore_blocks;
+		 inode_block++) {
 		pr_debug("Checking inode store block %d.\n", inode_block);
-		struct inode *parent = search_parent_isb(inode, \
+		struct inode *parent = search_parent_isb(inode,
 							 inode_block + 1);
-		if (parent) {
+		if (parent)
 			return parent;
-		}
 	}
 
 	return NULL;
 }
 /**
  * search_parent_isb - searches for the parent of an inode in a block of the
- * 		       inode store
+ *		       inode store
  *
  * @inode: inode of which to find the parent
  * @inode_block: index of the block in the inode store to search
  *
  * Return: pointer to the parent if it was found, NULL otherwise.
 */
-static struct inode *search_parent_isb(struct inode *inode, \
+static struct inode *search_parent_isb(struct inode *inode,
 				       uint32_t inode_block)
 {
 	if (!inode)
@@ -401,6 +405,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 
 	struct super_block *superblock = inode->i_sb;
 	struct buffer_head *bh = sb_bread(superblock, inode_block);
+
 	if (!bh)
 		return ERR_PTR(-EIO);
 
@@ -409,9 +414,10 @@ static struct inode *search_parent_isb(struct inode *inode, \
 
 	uint32_t ino;
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
+
 	istore_for_each_inode(ino, sbi, inode_block) {
 		pr_debug("Checking inode with ino %d\n", ino);
-		uint32_t inode_shift = ino - \
+		uint32_t inode_shift = ino -
 				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK;
 		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
 
@@ -432,8 +438,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 
 
 		if (dir_contains_ino(superblock, current_inode, inode->i_ino)) {
-			pr_debug("Found parent inode with ino %d.\n", \
-				ino);
+			pr_debug("Found parent inode with ino %d.\n", ino);
 			parent = ouichefs_iget(superblock, ino);
 			break;
 		}
@@ -445,7 +450,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
 
 /**
  * dir_contains_ino - checks whether an inode with given i_no is contained
- * 		      in a given directory
+ *		      in a given directory
  *
  * @superblock: superblock of directory and inode
  * @dir: directory to search
@@ -453,7 +458,7 @@ static struct inode *search_parent_isb(struct inode *inode, \
  *
  * Return: true if the inode is contained, false otherwise.
  */
-static bool dir_contains_ino(struct super_block *superblock, \
+static bool dir_contains_ino(struct super_block *superblock,
 			     struct ouichefs_inode *dir, uint32_t ino)
 {
 	if (!dir)
@@ -468,7 +473,7 @@ static bool dir_contains_ino(struct super_block *superblock, \
 
 	bool contains = false;
 
-	struct ouichefs_dir_block *dblock = \
+	struct ouichefs_dir_block *dblock =
 		(struct ouichefs_dir_block *)bh->b_data;
 
 	struct ouichefs_file *f = NULL;
@@ -499,7 +504,7 @@ static u16 list_count(struct hlist_head *list)
 	u16 count = 0;
 
 	hlist_for_each(pos, list) {
-	count++;
+		count++;
 	}
 	return count;
 }
