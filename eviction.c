@@ -460,15 +460,19 @@ static bool dir_contains_ino(struct super_block *superblock, \
 		return false;
 
 	struct buffer_head *bh = sb_bread(superblock, dir->index_block);
+
 	if (!bh) {
 		pr_warn("could not read buffer head.\n");
 		return false;
 	}
 
 	bool contains = false;
+
 	struct ouichefs_dir_block *dblock = \
 		(struct ouichefs_dir_block *)bh->b_data;
+
 	struct ouichefs_file *f = NULL;
+
 	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
 		f = &dblock->files[i];
 		if (!f->inode)
@@ -493,6 +497,7 @@ static u16 list_count(struct hlist_head *list)
 {
 	struct hlist_node *pos;
 	u16 count = 0;
+
 	hlist_for_each(pos, list) {
 	count++;
 	}

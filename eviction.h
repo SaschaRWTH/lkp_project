@@ -15,14 +15,13 @@ int trigger_eviction(struct super_block *sb);
  * @sbi: superblock information of the inode
  * @block_index: index of the data block to iterate over
  */
-#define istore_for_each_inode(ino, sbi, block_index) 			  \
-for ((ino) = find_next_zero_bit((sbi)->ifree_bitmap,  			  \
-			(sbi)->nr_inodes, 				  \
+#define istore_for_each_inode(ino, sbi, block_index)			  \
+for ((ino) = find_next_zero_bit((sbi)->ifree_bitmap,			  \
+			(sbi)->nr_inodes,				  \
 			((inode_block) - 1) * OUICHEFS_INODES_PER_BLOCK); \
-     ((ino) < (block_index) * OUICHEFS_INODES_PER_BLOCK) && 		  \
-     ((ino) < (sbi)->nr_inodes); 					  \
-     (ino) = find_next_zero_bit(sbi->ifree_bitmap, 			  \
-			      sbi->nr_inodes, 				  \
+	((ino) < (block_index) * OUICHEFS_INODES_PER_BLOCK) &&		  \
+	((ino) < (sbi)->nr_inodes);					  \
+	(ino) = find_next_zero_bit(sbi->ifree_bitmap,			  \
+			      sbi->nr_inodes,				  \
 			      ino + 1))
-
 #endif /*_OUICHEFS_EVICTION_H*/
