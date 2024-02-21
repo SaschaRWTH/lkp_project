@@ -7,7 +7,7 @@ CFLAGS_largest_file_policy.o := -DDEBUG
 # CC += ${MY_CFLAGS}
 
 all :
-	make -C $(KERNELDIR_LKP) M=$$PWD modules KBUILD_EXTRA_SYMBOLS=/home/saschathiemann/Studium/Semester_9/Linux_Kernel_Programming/kernel/lkp_project/Module.symvers
+	make -C $(KERNELDIR_LKP) M=$$PWD modules KBUILD_EXTRA_SYMBOLS=/home/sascha/Documents/Studium/Semester_9/LinuxKernelProgramming/Kernel/lkp_project/Module.symvers
 
 # debug:
 # 	make -C $(KERNELDIR_LKP) M=$(PWD) modules 

@@ -49,14 +49,12 @@ static struct inode *lru_compare(struct inode *first, struct inode *second)
 	/**
 	 * Compare access time of nodes
 	 * We assure seconds are detailed enough for this check.
+	 * Return the node to evict
 	 */
 	if (first->i_atime.tv_sec < second->i_atime.tv_sec)
-		lru = first;
+		return first;
 	else
-		lru = second;
-
-	/* Return inode which was least recently accessed */
-	return lru;
+		return second;
 }
 
 /**
@@ -69,7 +67,7 @@ static struct inode *lru_compare(struct inode *first, struct inode *second)
  */
 struct inode *get_file_to_evict(struct super_block *sb)
 {
-	pr_info("Current eviction policy is '%s'", current_policy->name);
+	pr_debug("Current eviction policy is '%s'", current_policy->name);
 	struct inode *evict;
 
 	down_read(&policy_lock);
@@ -91,8 +89,8 @@ struct inode *get_file_to_evict(struct super_block *sb)
 }
 
 /**
- * Searches for a file in a directory to evict based on the current
- * eviction policy.
+ * dir_get_file_to_evict - Searches for a file in a directory to evict based on
+ *			   the current eviction policy.
  *
  * @dir: directory to search for file to evict.
  *
@@ -103,7 +101,7 @@ struct inode *get_file_to_evict(struct super_block *sb)
  **/
 struct inode *dir_get_file_to_evict(struct inode *dir)
 {
-	pr_info("Current eviction policy is '%s'", current_policy->name);
+	pr_debug("Current eviction policy is '%s'", current_policy->name);
 	struct inode *remove;
 
 	/* Check if given dir is null. */
@@ -162,8 +160,8 @@ struct inode *dir_file_to_evict(struct inode *dir)
 			break;
 		}
 
-		pr_info("Checking file with ino %lu.\n and name %s",
-			(unsigned long) f->inode, f->filename);
+		pr_debug("Checking file with ino %lu.\n and name %s",
+				(unsigned long) f->inode, f->filename);
 
 		/**
 		 * Get inode struct from superblock
@@ -202,7 +200,7 @@ struct inode *dir_file_to_evict(struct inode *dir)
 	 */
 	brelse(bufferhead);
 
-	pr_info("Returning file with ino %lu.\n",
+	pr_debug("Returning file with ino %lu.\n",
 			 (unsigned long) remove->i_ino);
 
 	return remove;
@@ -216,7 +214,7 @@ struct inode *dir_file_to_evict(struct inode *dir)
  *
  * Return: pointer to file to evict, NULL if no file could be found.
  *
- * Note: We assure that the current policy has already been locked for reading.
+ * Note: We assume that the current policy has already been locked for reading.
  */
 static struct inode *file_to_evict_inode_store(struct super_block *superblock)
 {

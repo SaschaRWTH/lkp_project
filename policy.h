@@ -22,7 +22,12 @@ struct eviction_policy {
 	/* Description of eviction policy*/
 	char description[MAX_EVICTION_DESCRIPTION];
 
-	/* Comparison function used to search for file to evict.*/
+	/**
+	 * Comparison function used to search for file to evict.
+	 * The function should return the inode which should be evicted.
+	 * The search alogirthm will pass the current to-be-evicted inode
+	 * as the first argument and the inode to compare with as the second.
+	 */
 	struct inode *(*compare)(struct inode *, struct inode *);
 };
 

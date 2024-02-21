@@ -46,11 +46,11 @@ int check_for_eviction(struct inode *dir)
 		return EVICTION_NOT_NECESSARY;
 
 	if (errc < 0) {
-		pr_info("The threshold check failed.\n");
+		pr_warn("The threshold check failed.\n");
 		return errc;
 	}
 
-	pr_info("The threshold was met. Finding file to evict.\n");
+	pr_debug("The threshold was met. Finding file to evict.\n");
 
 	errc = trigger_eviction(dir->i_sb);
 	return errc;
@@ -68,11 +68,9 @@ int check_for_eviction(struct inode *dir)
 int trigger_eviction(struct super_block *sb)
 {
 	int errc = 0;
-	/* Print address of the superblock */
-	pr_info("Superblock address: %p\n", sb);
 	struct inode *evict = get_file_to_evict(sb);
 
-	pr_info("Found inode with ino %lu.\n", evict->i_ino);
+	pr_debug("Found inode with ino %lu.\n", evict->i_ino);
 
 	if (!evict) {
 		pr_warn("Could not find a file to evict.\n");
@@ -107,9 +105,9 @@ int trigger_eviction(struct super_block *sb)
 
 	errc = evict_file(parent, evict);
 	if (!errc)
-		pr_info("Successfully evicted %lld bytes.\n", evicted_bytes);
+		pr_debug("Successfully evicted %lld bytes.\n", evicted_bytes);
 	else
-		pr_info("An error occured in eviction.\n");
+		pr_debug("An error occured in eviction.\n");
 
 	iput(parent);
 general_put:
@@ -201,11 +199,11 @@ dir_put:
 static int evict_file(struct inode *dir, struct inode *file)
 {
 	if (!dir) {
-		pr_info("The given parent is NULL.\n");
+		pr_warn("The given parent is NULL.\n");
 		return -1;
 	}
 	if (!file) {
-		pr_info("The given file is NULL.\n");
+		pr_warn("The given file is NULL.\n");
 		return -1;
 	}
 
@@ -221,7 +219,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 	 * no effect on its deletion.
 	 */
 	if (file->i_count.counter > dentries_count + 1) {
-		pr_info("The file is still in use by another process.\n");
+		pr_warn("The file is still in use by another process.\n");
 		return -1;
 	}
 
@@ -232,8 +230,6 @@ static int evict_file(struct inode *dir, struct inode *file)
 		return -1;
 	}
 
-	pr_info("dir ino: %lu, dentry.inode.ino: %lu.\n", dir->i_ino,
-		dentry->d_inode->i_ino);
 	int error = dir->i_op->unlink(dir, dentry);
 
 	if (error)
@@ -243,13 +239,15 @@ static int evict_file(struct inode *dir, struct inode *file)
 	 * Unnecessary? I dont know.
 	 * dput(dentry);
 	 * Is it causing errors? Probably
-	 * Ok, dput(dentry) was causing error and does not need to be called.
+	 * Ok, dput(dentry) was causing error and does (hopefully) not need 
+	 * to be called.
 	 *
-	 * what about
+	 * what about 
 	 * dont_mount(dentry);
 	 * detach_mounts(dentry);
-	 * Do i need them?
-	 * I have no clue but it seems to work without them.
+	 * Do i need them? (called in vfs_unlink)
+	 * I have no clue but it seems to work without them and using them 
+	 * causes errors.
 	 */
 
 	return error;
@@ -316,7 +314,8 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 }
 
 /**
- *  get_name_of_inode - gets the name of a given inode
+ *  get_name_of_inode - gets the name of a given inode.
+ *
  *  @dir: parent directory of the inode
  *  @inode: inode of which we want to know the name
  *

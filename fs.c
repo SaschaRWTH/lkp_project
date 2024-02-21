@@ -65,7 +65,7 @@ static ssize_t eviction_trigger_store(struct kobject *kobj,
 	int value;
 	int rc = kstrtoint(buf, 10, &value);
 
-	if (!rc || value <= 0) {
+	if (rc || value <= 0) {
 		pr_err("invalid value\n");
 		return -EINVAL;
 	}
