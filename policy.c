@@ -26,7 +26,7 @@ static struct eviction_policy least_recently_used_policy = {
 static struct eviction_policy *current_policy = &least_recently_used_policy;
 struct inode *dir_file_to_evict(struct inode *dir);
 static struct inode *file_to_evict_inode_store(struct super_block *superblock);
-static struct inode *search_inode_store_block(struct super_block *superblock,\
+static struct inode *search_inode_store_block(struct super_block *superblock,
 				       uint32_t inode_block);
 
 /**
@@ -41,19 +41,21 @@ static struct inode *lru_compare(struct inode *first, struct inode *second)
 {
 	struct inode *lru;
 
-	if(!first)
+	if (!first)
 		return second;
-	if(!second)
+	if (!second)
 		return first;
 
-	// Compare access time of nodes
-	// We assure seconds are detailed enough for this check.
-	if(first->i_atime.tv_sec < second->i_atime.tv_sec)
+	/**
+	 * Compare access time of nodes
+	 * We assure seconds are detailed enough for this check.
+	 */
+	if (first->i_atime.tv_sec < second->i_atime.tv_sec)
 		lru = first;
 	else
 		lru = second;
 
-	// Return inode which was least recently accessed
+	/* Return inode which was least recently accessed */
 	return lru;
 }
 
@@ -68,9 +70,10 @@ static struct inode *lru_compare(struct inode *first, struct inode *second)
 struct inode *get_file_to_evict(struct super_block *sb)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
+	struct inode *evict;
 
 	down_read(&policy_lock);
-	struct inode *evict = file_to_evict_inode_store(sb);
+	evict = file_to_evict_inode_store(sb);
 	up_read(&policy_lock);
 
 	if (!evict) {
@@ -101,21 +104,22 @@ struct inode *get_file_to_evict(struct super_block *sb)
 struct inode *dir_get_file_to_evict(struct inode *dir)
 {
 	pr_info("Current eviction policy is '%s'", current_policy->name);
+	struct inode *remove;
 
-	// Check if given dir is null.
-	if(!dir) {
+	/* Check if given dir is null. */
+	if (!dir) {
 		pr_warn("The given inode was NULL.\n");
 		return NULL;
 	}
 
-	// Check that dir is a directory
+	/* Check that dir is a directory */
 	if (!S_ISDIR(dir->i_mode)) {
 		pr_warn("The given inode was not a directory.\n");
 		return ERR_PTR(-ENOTDIR);
 	}
 
 	down_read(&policy_lock);
-	struct inode* remove = dir_file_to_evict(dir);
+	remove = dir_file_to_evict(dir);
 	up_read(&policy_lock);
 
 
@@ -124,7 +128,7 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
 
 /**
  * dir_file_to_evict - searches a given directory for a file to evict based on
- * 		       the current policy.
+ *		       the current policy.
  *
  * @dir: directory to search.
  *
@@ -134,67 +138,71 @@ struct inode *dir_get_file_to_evict(struct inode *dir)
  */
 struct inode *dir_file_to_evict(struct inode *dir)
 {
-	// Read the directory index block on disk
+	/* Read the directory index block on disk */
 	struct ouichefs_inode_info *ci = OUICHEFS_INODE(dir);
 	struct super_block *superblock = dir->i_sb;
 	struct buffer_head *bufferhead = sb_bread(superblock, ci->index_block);
+
 	if (!bufferhead) {
 		pr_warn("The buffer head could not be read.\n");
 		return ERR_PTR(-EIO);
 	}
-	struct ouichefs_dir_block *dblock = \
+	struct ouichefs_dir_block *dblock =
 		(struct ouichefs_dir_block *)bufferhead->b_data;
 
 
 	struct inode *remove = NULL;
 	struct inode *temp = NULL;
-	// Iterate over the index block
+	/* Iterate over the index block */
 	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
 		struct ouichefs_file *f = &dblock->files[i];
+
 		if (!f->inode) {
 			pr_warn("The directory is not full.\n");
 			break;
 		}
 
-		pr_info("Checking file with ino %lu.\n and name %s",\
+		pr_info("Checking file with ino %lu.\n and name %s",
 			(unsigned long) f->inode, f->filename);
 
-		// Get inode struct from superblock
-		// Increases ref count of inode, need to put!
+		/**
+		 * Get inode struct from superblock
+		 * Increases ref count of inode, need to put!
+		 */
 		struct inode *inode = ouichefs_iget(superblock, f->inode);
 
-		// Check till first null inode
+		/* Check till first null inode */
 		if (!inode) {
 			pr_warn("The directory is not full.\n");
 			break;
 		}
 
-		// Check that the node is a file
+		/* Check that the node is a file */
 		if (!S_ISREG(inode->i_mode))
 			continue;
 
 		if (!remove) {
 			remove = inode;
-		}
-		else {
+		} else {
 			temp = current_policy->compare(remove, inode);
-			// Put unused inode
+			/* Put unused inode */
 			if (temp != remove) {
 				iput(remove);
 				remove = inode;
-			}
-			else {
+			} else {
 				iput(inode);
 			}
 		}
 	}
 
-	// Release buffer
-	// What kind of ____ abbreviation for "release" is "relse".
-	// Had to google because i was unsure.
+	/**
+	 * Release buffer
+	 * What kind of ____ abbreviation for "release" is "relse".
+	 * Had to google because i was unsure.
+	 */
 	brelse(bufferhead);
 
-	pr_info("Returning file with ino %lu.\n",\
+	pr_info("Returning file with ino %lu.\n",
 			 (unsigned long) remove->i_ino);
 
 	return remove;
@@ -202,7 +210,7 @@ struct inode *dir_file_to_evict(struct inode *dir)
 
 /**
  * file_to_evict_inode_store - searches the inode store of a given super block
- * 			       for a file to evict based on the current policy.
+ *			       for a file to evict based on the current policy.
  *
  * @superblock: superblock of the inode store to search.
  *
@@ -217,14 +225,15 @@ static struct inode *file_to_evict_inode_store(struct super_block *superblock)
 		return NULL;
 	}
 
-	// Search inode store for inode to evict
+	/* Search inode store for inode to evict */
 	struct ouichefs_sb_info *sbi = OUICHEFS_SB(superblock);
 
-	// Loop through all inode store blocks
+	/* Loop through all inode store blocks */
 	struct inode *remove = NULL;
-	for(int inode_block = 0; inode_block < sbi->nr_istore_blocks; \
+
+	for (int inode_block = 0; inode_block < sbi->nr_istore_blocks;
 				 inode_block++) {
-		struct inode *inode = search_inode_store_block(superblock,\
+		struct inode *inode = search_inode_store_block(superblock,
 							       inode_block + 1);
 		if (!remove) {
 			remove = inode;
@@ -237,13 +246,12 @@ static struct inode *file_to_evict_inode_store(struct super_block *superblock)
 		if (current_policy->compare(remove, inode) == inode) {
 			iput(remove);
 			remove = inode;
-		}
-		else {
+		} else {
 			iput(inode);
 		}
 
-		// Check if no more alive inodes are available
-		if(find_next_zero_bit(sbi->ifree_bitmap, sbi->nr_inodes, \
+		/* Check if no more alive inodes are available */
+		if (find_next_zero_bit(sbi->ifree_bitmap, sbi->nr_inodes,
 			((inode_block) - 1) * OUICHEFS_INODES_PER_BLOCK)
 			== sbi->nr_inodes)
 			break;
@@ -254,23 +262,24 @@ static struct inode *file_to_evict_inode_store(struct super_block *superblock)
 
 /**
  *  search_inode_store_block - searches a block of the inode store for the
- * 			       file to evict based on the current policy.
+ *			       file to evict based on the current policy.
  *
  * @superblock: superblock of the filesystem
  * @inode_block: index of the inode block in the inode store
  *
  * Return: pointer to inode to remove, NULL if non could be found.
  */
-static struct inode *search_inode_store_block(struct super_block *superblock,\
-				       uint32_t inode_block)
+static struct inode *search_inode_store_block(struct super_block *superblock,
+					      uint32_t inode_block)
 {
 	if (!superblock)
 		return NULL;
 
-	if (inode_block < 1 )
+	if (inode_block < 1)
 		return NULL;
 
 	struct buffer_head *bh = sb_bread(superblock, inode_block);
+
 	if (!bh)
 		return ERR_PTR(-EIO);
 
@@ -278,27 +287,31 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 	struct ouichefs_inode *disk_inode = (struct ouichefs_inode *)bh->b_data;
 	struct inode *remove = NULL;
 	uint32_t ino;
+
 	istore_for_each_inode(ino, sbi, inode_block) {
 		pr_debug("Checking inode with ino %d\n", ino);
-		uint32_t inode_shift = ino - \
+		uint32_t inode_shift = ino -
 				(inode_block - 1) * OUICHEFS_INODES_PER_BLOCK;
 		struct ouichefs_inode *current_inode = disk_inode + inode_shift;
 
 
-		// Something would be very wrong if this happened.
-		// We'll just ignore it.
-		if(!current_inode)
+		/**
+		 * Something would be very wrong if this happened.
+		 * We'll just ignore it.
+		 */
+		if (!current_inode)
 			continue;
 
-		// Skip empty inodes
-		if(current_inode->index_block == 0)
+		/* Skip empty inodes */
+		if (current_inode->index_block == 0)
 			continue;
 
-		// Only regular files can be evicted.
-		if(!S_ISREG(current_inode->i_mode))
+		/* Only regular files can be evicted. */
+		if (!S_ISREG(current_inode->i_mode))
 			continue;
 
 		struct inode *inode = ouichefs_iget(superblock, ino);
+
 		if (!inode || IS_ERR(inode))
 			continue;
 
@@ -310,8 +323,7 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
 		if (current_policy->compare(remove, inode) == inode) {
 			iput(remove);
 			remove = inode;
-		}
-		else {
+		} else {
 			iput(inode);
 		}
 	}
@@ -326,7 +338,7 @@ static struct inode *search_inode_store_block(struct super_block *superblock,\
  * @policy: policy to register.
  *
  * Return: 0 is successfully registered, -POLICY_ALREADY_REGISTERED if a policy
- * 	   is already registered.
+ *	   is already registered.
  *
  */
 int register_policy(struct eviction_policy *policy)
@@ -337,7 +349,7 @@ int register_policy(struct eviction_policy *policy)
 	if (!policy->compare)
 		return -EFAULT;
 
-	// Check if another policy is already registered
+	/* Check if another policy is already registered */
 	if (current_policy != &least_recently_used_policy) {
 		pr_debug("A policy is already registered.");
 		return -POLICY_ALREADY_REGISTERED;
@@ -354,7 +366,7 @@ EXPORT_SYMBOL(register_policy);
 
 /**
  *  unregister_policy - unregisters a given policy and restores the default
- * 			policy.
+ *			policy.
  *
  * @policy: policy to unregister.
  */
