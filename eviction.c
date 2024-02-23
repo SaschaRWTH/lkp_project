@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/kernel.h>
@@ -209,7 +210,7 @@ static int evict_file(struct inode *dir, struct inode *file)
 
 	u16 dentries_count = list_count(&file->i_dentry);
 
-	pr_debug("Number of dentries of file: %hu.\n", dentries_count);
+	pr_debug("Number of dentries of file: %u.\n", dentries_count);
 	pr_debug("Number of references to file: %d.\n", file->i_count.counter);
 
 	/**
@@ -239,14 +240,14 @@ static int evict_file(struct inode *dir, struct inode *file)
 	 * Unnecessary? I dont know.
 	 * dput(dentry);
 	 * Is it causing errors? Probably
-	 * Ok, dput(dentry) was causing error and does (hopefully) not need 
+	 * Ok, dput(dentry) was causing error and does (hopefully) not need
 	 * to be called.
 	 *
-	 * what about 
+	 * what about
 	 * dont_mount(dentry);
 	 * detach_mounts(dentry);
 	 * Do i need them? (called in vfs_unlink)
-	 * I have no clue but it seems to work without them and using them 
+	 * I have no clue but it seems to work without them and using them
 	 * causes errors.
 	 */
 
@@ -392,7 +393,7 @@ static struct inode *search_parent_inode_store(struct inode *inode)
  * @inode_block: index of the block in the inode store to search
  *
  * Return: pointer to the parent if it was found, NULL otherwise.
-*/
+ */
 static struct inode *search_parent_isb(struct inode *inode,
 				       uint32_t inode_block)
 {

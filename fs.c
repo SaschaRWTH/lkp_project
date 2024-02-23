@@ -71,10 +71,6 @@ static ssize_t eviction_trigger_store(struct kobject *kobj,
 	}
 	eviction_enabled = value;
 
-	/**
-	 * TODO: Let the eviction run
-	 * Print address of the superblock
-	 */
 	trigger_eviction(sb);
 
 	eviction_enabled = 0;

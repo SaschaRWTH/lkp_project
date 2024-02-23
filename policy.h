@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _OUICHEFS_POLICY_H
 #define _OUICHEFS_POLICY_H
 
@@ -23,12 +24,15 @@ struct eviction_policy {
 	char description[MAX_EVICTION_DESCRIPTION];
 
 	/**
+	 * @inode1: First inode to compare.
+	 * @inode2: Second inode to compare.
+	 *
 	 * Comparison function used to search for file to evict.
 	 * The function should return the inode which should be evicted.
 	 * The search alogirthm will pass the current to-be-evicted inode
 	 * as the first argument and the inode to compare with as the second.
 	 */
-	struct inode *(*compare)(struct inode *, struct inode *);
+	struct inode *(*compare)(struct inode *inode1, struct inode *inode2);
 };
 
 struct inode *get_file_to_evict(struct super_block *parent);
