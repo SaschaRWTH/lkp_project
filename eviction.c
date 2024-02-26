@@ -159,7 +159,7 @@ int dir_eviction(struct inode *dir)
 {
 	int errc = 0;
 
-	/* Should we be locking dir?*/
+	/* Should we be locking dir? */
 	/* Module hangs if i try to */
 
 	struct inode *remove = dir_get_file_to_evict(dir);
@@ -236,9 +236,10 @@ static int evict_file(struct inode *dir, struct inode *file)
 	if (error)
 		pr_err("(unlink): Could not unlink file.\n");
 
-
+	/* Does dput also iput? Apparently it does */
 	if (!d_unhashed(dentry))
 		dput(dentry);
+
 	/*
 	 * Unnecessary? I dont know.
 	 * dput(dentry);
@@ -307,7 +308,11 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 	 *
 	 * Probably sth to do with if the dentry is in the dcache or not
 	 */
-	dentry->d_parent->d_inode = dir;
+	if (dentry->d_parent->d_inode != dir) {
+		if (!dentry->d_parent->d_inode)
+			iput(dentry->d_parent->d_inode);
+		dentry->d_parent->d_inode = dir;
+	}
 	/*
 	 * Can we just set the inode of the dentry to its original
 	 * or "supposed to be"-values?
@@ -317,8 +322,19 @@ static struct dentry *inode_to_dentry(struct inode *dir, struct inode *inode)
 	 * kernel BUG at fs/inode.c:1804!
 	 * the put kernel bug, described above.
 	 * FIX: Removed 'dput(dentry)'
+	 *
+	 * I really dont know if this is going to work, but apparently
+	 * in some cases there are busy inode when umounting,
+	 * this could be it. Because we just overwrote and did not check if
+	 * we needed to.
+	 *
+	 * This check dir not fix the issue.
 	 */
-	dentry->d_inode = inode;
+	if (dentry->d_inode != inode) {
+		if (!dentry->d_inode)
+			iput(dentry->d_inode);
+		dentry->d_inode = inode;
+	}
 
 	return dentry;
 }
