@@ -40,8 +40,6 @@ static struct inode *search_inode_store_block(struct super_block *superblock,
  */
 static struct inode *lru_compare(struct inode *first, struct inode *second)
 {
-	struct inode *lru;
-
 	if (!first)
 		return second;
 	if (!second)
@@ -201,8 +199,10 @@ struct inode *dir_file_to_evict(struct inode *dir)
 	 */
 	brelse(bufferhead);
 
-	pr_debug("Returning file with ino %lu.\n",
-			 (unsigned long) remove->i_ino);
+	/**
+	 * Do not print remove->i_io without checking if remove is NULL.
+	 * If dir is full with dirs, remove is NULL!
+	 */
 
 	return remove;
 }
