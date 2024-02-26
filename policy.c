@@ -40,8 +40,6 @@ static struct inode *search_inode_store_block(struct super_block *superblock,
  */
 static struct inode *lru_compare(struct inode *first, struct inode *second)
 {
-	struct inode *lru;
-
 	if (!first)
 		return second;
 	if (!second)
@@ -194,11 +192,6 @@ struct inode *dir_file_to_evict(struct inode *dir)
 		}
 	}
 
-	/**
-	 * Release buffer
-	 * What kind of ____ abbreviation for "release" is "relse".
-	 * Had to google because i was unsure.
-	 */
 	brelse(bufferhead);
 
 	pr_debug("Returning file with ino %lu.\n",
