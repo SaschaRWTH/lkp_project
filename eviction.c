@@ -159,7 +159,7 @@ int dir_eviction(struct inode *dir)
 {
 	int errc = 0;
 
-	/* TODO: Should we be locking dir?*/
+	/* Should we be locking dir?*/
 	/* Module hangs if i try to */
 
 	struct inode *remove = dir_get_file_to_evict(dir);

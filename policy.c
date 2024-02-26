@@ -192,11 +192,6 @@ struct inode *dir_file_to_evict(struct inode *dir)
 		}
 	}
 
-	/**
-	 * Release buffer
-	 * What kind of ____ abbreviation for "release" is "relse".
-	 * Had to google because i was unsure.
-	 */
 	brelse(bufferhead);
 
 	/**
