@@ -149,7 +149,6 @@ struct inode *dir_file_to_evict(struct inode *dir)
 
 
 	struct inode *remove = NULL;
-	struct inode *temp = NULL;
 	/* Iterate over the index block */
 	for (int i = 0; i < OUICHEFS_MAX_SUBFILES; i++) {
 		struct ouichefs_file *f = &dblock->files[i];
@@ -175,20 +174,20 @@ struct inode *dir_file_to_evict(struct inode *dir)
 		}
 
 		/* Check that the node is a file */
-		if (!S_ISREG(inode->i_mode))
+		if (!S_ISREG(inode->i_mode)) {
+			iput(inode);
 			continue;
+		}
 
 		if (!remove) {
 			remove = inode;
+			continue;
+		}
+		if (current_policy->compare(remove, inode) == inode) {
+			iput(remove);
+			remove = inode;
 		} else {
-			temp = current_policy->compare(remove, inode);
-			/* Put unused inode */
-			if (temp != remove) {
-				iput(remove);
-				remove = inode;
-			} else {
-				iput(inode);
-			}
+			iput(inode);
 		}
 	}
 
