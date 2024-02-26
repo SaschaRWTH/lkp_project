@@ -236,12 +236,21 @@ static int evict_file(struct inode *dir, struct inode *file)
 	if (error)
 		pr_err("(unlink): Could not unlink file.\n");
 
+
+	if (!d_unhashed(dentry))
+		dput(dentry);
 	/*
 	 * Unnecessary? I dont know.
 	 * dput(dentry);
 	 * Is it causing errors? Probably
 	 * Ok, dput(dentry) was causing error and does (hopefully) not need
 	 * to be called.
+	 *
+	 * It seems, dput needs to be called, otherwise the dentry can still
+	 * remain in the dcache and cause a bug when unmounting.
+	 *
+	 * I hope, checking if the dentry is hashed removes the isue that
+	 * previously caused errors.
 	 *
 	 * what about
 	 * dont_mount(dentry);
